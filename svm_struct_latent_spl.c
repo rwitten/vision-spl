@@ -874,18 +874,21 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
     {
       memset(this_kernels_examples, 0, m * sizeof(int));
       nValids[i] = update_valid_examples(w, m, C, fycache, ex, cached_images, sm, sparm, this_kernels_examples,valid_example_kernels[i], spl_weight[i]);
+        printf("%dth kernel gives us %d valids\n", i, nValids[i]);
         for(j=0; j<m;j++)
         {
             valid_example_kernels[j][i] = this_kernels_examples[j];
-	        if (this_kernels_examples[j]) {
-	            valid_examples[j] = 1;
+	        if (this_kernels_examples[j]) { 
+	            valid_examples[j] = 1; // since at least one kernel is included for this example, this example is included
 	        }
         }
     }
     last_relaxed_primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, valid_examples, valid_example_kernels);
     
     for (i=0;i<sm->num_kernels;i++) {
-        last_relaxed_primal_obj += (double)(m-nValids[i])/((double)spl_weight[i]);
+        if(m-nValids[i]>0) {
+            last_relaxed_primal_obj += (double)(m-nValids[i])/((double)spl_weight[i]);
+        }
     }
 
 	for (i=0;i<m;i++) {
@@ -908,8 +911,9 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
 	   }
 
 
-
-		printf("ACS Iteration %d: number of examples for 0th kernel = %d\n",iter,nValids[0]); fflush(stdout);
+        //RAFI this is temporary
+        assert(sm->num_kernels==5);
+		printf("ACS Iteration %d: number of examples for each kernel = %d %d %d %d %d\n",iter,nValids[0], nValids[1], nValids[2], nValids[3], nValids[4]); fflush(stdout);
 		//RAFI broken
         converged = check_acs_convergence(prev_valid_examples,valid_examples,m);
 		if(converged && iter > 5) {
@@ -927,8 +931,12 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
                 }
         
         for (i=0;i<sm->num_kernels;i++)
-            relaxed_primal_obj += (double)(m-nValids[i])/((double)spl_weight[i]);
-
+        {
+            if(m-nValids[i]>0)
+            {
+                relaxed_primal_obj += (double)(m-nValids[i])/((double)spl_weight[i]);
+            }
+        }
 		decrement = last_relaxed_primal_obj-relaxed_primal_obj;
     printf("relaxed primal objective: %.4f\n", relaxed_primal_obj);
    	printf("decrement: %.4f\n", decrement); fflush(stdout);
@@ -1279,8 +1287,9 @@ int main(int argc, char* argv[]) {
 		}
 
     outer_iter++;
-        for(i=0;i<sm.num_kernels;i++) 
+        for(i=0;i<sm.num_kernels;i++) {
     		spl_weight[i] /= spl_factor;
+        }
   } // end outer loop
 	fclose(fexamples);
 	fclose(ftime);
