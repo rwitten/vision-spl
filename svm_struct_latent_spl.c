@@ -725,6 +725,12 @@ int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPL
 
 	long i, j;
 
+    if(!sparm->multi_kernel_spl){
+        for(i=0; i<sm->num_kernels;i++) {
+            kernel_choice[i]=1;    
+        }
+    }
+
 	/* if self-paced learning weight is non-positive, all examples are valid */
 	if(spl_weight <= 0.0) {
 		for (i=0;i<m;i++)
@@ -871,9 +877,9 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
         for(j=0; j<m;j++)
         {
             valid_example_kernels[j][i] = this_kernels_examples[j];
-	    if (this_kernels_examples[j]) {
-	      valid_examples[j] = 1;
-	    }
+	        if (this_kernels_examples[j]) {
+	            valid_examples[j] = 1;
+	        }
         }
     }
     last_relaxed_primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, valid_examples, valid_example_kernels);
@@ -906,7 +912,7 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
 		printf("ACS Iteration %d: number of examples for 0th kernel = %d\n",iter,nValids[0]); fflush(stdout);
 		//RAFI broken
         converged = check_acs_convergence(prev_valid_examples,valid_examples,m);
-		if(converged) {
+		if(converged && iter > 5) {
 			break;
 		}
 
@@ -1225,7 +1231,7 @@ int main(int argc, char* argv[]) {
     /* compute decrement in objective in this outer iteration */
     decrement = last_primal_obj - primal_obj;
     last_primal_obj = primal_obj;
-    printf("primal objective: %.4f\n", primal_obj);
+    printf("primal objective (THIS IS THE MONEY SHOT): %.4f\n", primal_obj);
 		if (outer_iter) {
     	printf("decrement: %.4f\n", decrement); fflush(stdout);
 		}
@@ -1340,6 +1346,7 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
 	struct_parm->margin_type = 0;
 
   struct_parm->custom_argc=0;
+  struct_parm->multi_kernel_spl = 0;
 
   for(i=1;(i<argc) && ((argv[i])[0] == '-');i++) {
     switch ((argv[i])[1]) {
@@ -1352,6 +1359,7 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
     case 't': i++; kernel_parm->kernel_type=atol(argv[i]); break;
     case 'n': i++; learn_parm->maxiter=atol(argv[i]); break;
     case 'p': i++; learn_parm->remove_inconsistent=atol(argv[i]); break; 
+    case 'z': i++; struct_parm->multi_kernel_spl = atol(argv[i]); break;
 		case 'k': i++; *init_spl_weight = atof(argv[i]); break;
 		case 'm': i++; *spl_factor = atof(argv[i]); break;
 		case 'o': i++; struct_parm->optimizer_type = atoi(argv[i]); break;
@@ -1360,9 +1368,12 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
     default: printf("\nUnrecognized option %s!\n\n",argv[i]);
       exit(0);
     }
-
+ 
   }
-	*init_spl_weight = (*init_spl_weight)/learn_parm->svm_c;
+  
+  assert(*init_spl_weight > 0.0 || !struct_parm->multi_kernel_spl);
+
+  *init_spl_weight = (*init_spl_weight)/learn_parm->svm_c;
 
   if(i>=argc) {
     printf("\nNot enough input parameters!\n\n");

@@ -27,7 +27,7 @@
 #define BASE_DIR "/afs/cs.stanford.edu/u/rwitten/scratch/temp/spm/data/"
 #define CONST_FILENAME_PART "_spquantized_1000_"
 #define CONST_FILENAME_SUFFIX ".mat"
-#define EXAMPLE_COST_POS_NEG_RATIO 6.3798
+#define EXAMPLE_COST_POS_NEG_RATIO 2.0
 
 int pad_cmp(const void * a, const void * b) {
   POINT_AND_DESCRIPTOR * pad_a = (POINT_AND_DESCRIPTOR *)a;
