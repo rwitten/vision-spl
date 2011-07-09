@@ -919,7 +919,7 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
 		printf("ACS Iteration %d: number of examples for each kernel = %d %d %d %d %d\n",iter,nValids[0], nValids[1], nValids[2], nValids[3], nValids[4]); fflush(stdout);
 		//RAFI broken
         converged = check_acs_convergence(prev_valid_examples,valid_examples,m);
-		if(converged && iter > 5) {
+		if(converged && (iter > 5)) {
 			break;
 		}
 
@@ -1221,7 +1221,7 @@ int main(int argc, char* argv[]) {
 		  } 
                   free(valid_kernels);
                 }
-    printf("OUTER ITER %d\n", outer_iter); 
+    printf("\n\n\nOUTER ITER %d\n\n\n", outer_iter); 
     /* cutting plane algorithm */
 
 		/* solve biconvex self-paced learning problem */
