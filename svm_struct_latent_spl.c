@@ -727,7 +727,7 @@ int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPL
 
     if(!sparm->multi_kernel_spl){
         for(i=0; i<sm->num_kernels;i++) {
-            kernel_choice[i]=1;    
+            kernel_choice[i]=1;   //since we aren't doing multi_kernel learning, all are on no matter what they said. 
         }
     }
 
@@ -869,11 +869,13 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
 		best_w[i] = w[i];
    
     memset(valid_examples, 0, m * sizeof(int));
-    int* this_kernels_examples = (int*) calloc( m, sizeof(int)); 
+    int* this_kernels_examples = (int*) calloc( m, sizeof(int));
+    int* kernel_info = (int*) calloc(sm->num_kernels, sizeof(int)); 
     for (i=0;i<sm->num_kernels;i++)
     {
+      kernel_info[i] = 1;
       memset(this_kernels_examples, 0, m * sizeof(int));
-      nValids[i] = update_valid_examples(w, m, C, fycache, ex, cached_images, sm, sparm, this_kernels_examples,valid_example_kernels[i], spl_weight[i]);
+      nValids[i] = update_valid_examples(w, m, C, fycache, ex, cached_images, sm, sparm, this_kernels_examples,kernel_info, spl_weight[i]);
         printf("%dth kernel gives us %d valids\n", i, nValids[i]);
         for(j=0; j<m;j++)
         {
@@ -882,6 +884,7 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
 	            valid_examples[j] = 1; // since at least one kernel is included for this example, this example is included
 	        }
         }
+        kernel_info[i]=0;
     }
     last_relaxed_primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, valid_examples, valid_example_kernels);
     
@@ -897,18 +900,18 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
 
 	for (iter=0;;iter++) {
 	  memset(valid_examples, 0, m * sizeof(int));
-	  for (i=0;i<sm->num_kernels;i++)
-	   {
-	     memset(this_kernels_examples, 0, m * sizeof(int));
-	     nValids[i] = update_valid_examples(w, m, C, fycache, ex, cached_images, sm, sparm, this_kernels_examples,valid_example_kernels[i], spl_weight[i]);
-	      for(j=0; j<m;j++)
-		{
+	  for (i=0;i<sm->num_kernels;i++) {
+        kernel_info[i]=1;
+	    memset(this_kernels_examples, 0, m * sizeof(int));
+	    nValids[i] = update_valid_examples(w, m, C, fycache, ex, cached_images, sm, sparm, this_kernels_examples,kernel_info, spl_weight[i]);
+	    for(j=0; j<m;j++) {
 		  valid_example_kernels[j][i] = this_kernels_examples[j];
 		  if (this_kernels_examples[j]) {
 		    valid_examples[j] = 1;
 		  }
 		}
-	   }
+        kernel_info[i]=0;
+	  }
 
 
         //RAFI this is temporary
@@ -962,8 +965,8 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
 		}
 	}
 
-	   free(this_kernels_examples);
-
+    free(this_kernels_examples);
+    free(kernel_info);
 	for (i=0;i<m;i++) {
 		prev_valid_examples[i] = 1;
 	}
