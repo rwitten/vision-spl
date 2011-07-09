@@ -21,17 +21,14 @@ int pixel_coord_to_descriptor_coord(int pixel_coord, int descriptor_tl_offset, i
 FILE * open_kernelized_image_file(PATTERN x, int kernel_ind, STRUCTMODEL * sm);
 void fill_image_kernel_cache(PATTERN x, int kernel_ind, IMAGE_KERNEL_CACHE * ikc, STRUCTMODEL * sm);
 void try_cache_image(PATTERN x, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL * sm);
-void descriptor_counts_to_max_pool(double * max_pool_segment, int * descriptor_counts, int kernel_size);
-//void fill_max_pool(PATTERN x, LATENT_VAR h, int kernel_ind, double * max_pool_segment, IMAGE_KERNEL_CACHE ** cached_images, int * descriptor_counts, int use_prev_descriptor_counts, STRUCTMODEL * sm);
-void get_descriptor_counts(POINT_AND_DESCRIPTOR * points_and_descriptors, int add_start_x, int subtract_start_x, int add_start_y, int subtract_start_y, int add_num_across, int subtract_num_across, int add_num_down, int subtract_num_down, int total_num_down, int * descriptor_counts, int kernel_ind, STRUCTMODEL * sm);
-//void get_descriptor_counts_entire_bbox(POINT_AND_DESCRIPTOR * points_and_descriptors, int start_x, int start_y, int num_across, int num_down, int total_num_down, int * descriptor_counts, int kernel_ind, STRUCTMODEL * sm);
-SVECTOR *psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cached_images, int * descriptor_counts, int use_prev_descriptor_counts, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
-double compute_w_T_psi(PATTERN *x, int position_x, int position_y, int class, IMAGE_KERNEL_CACHE ** cached_images, int * descriptor_counts, int use_prev_descriptor_counts, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
+SVECTOR *psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cached_images, int* valid_kernels,STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
+double compute_w_T_psi(PATTERN *x, int position_x, int position_y, int class, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
 void classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
-void initialize_most_violated_constraint_search(PATTERN x, LATENT_VAR hstar, LABEL y, LABEL *ybar, LATENT_VAR *hbar, double * max_score, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
-void find_most_violated_constraint_marginrescaling(PATTERN x, LATENT_VAR hstar, LABEL y, LABEL *ybar, LATENT_VAR *hbar, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
-void find_most_violated_constraint_differenty(PATTERN x, LATENT_VAR hstar, LABEL y, LABEL *ybar, LATENT_VAR *hbar, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
+void initialize_most_violated_constraint_search(PATTERN x, LATENT_VAR hstar, LABEL y, LABEL *ybar, LATENT_VAR *hbar, double * max_score, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
+void find_most_violated_constraint_marginrescaling(PATTERN x, LATENT_VAR hstar, LABEL y, LABEL *ybar, LATENT_VAR *hbar, IMAGE_KERNEL_CACHE ** cached_images, int* valid_kernels,STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
+void find_most_violated_constraint_differenty(PATTERN x, LATENT_VAR hstar, LABEL y, LABEL *ybar, LATENT_VAR *hbar, IMAGE_KERNEL_CACHE ** cached_images, int* valid_kernels,STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
 LATENT_VAR infer_latent_variables(PATTERN x, LABEL y, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
+void zero_svector_parts(int * valid_kernels, SVECTOR * fvec, STRUCTMODEL * sm);
 double loss(LABEL y, LABEL ybar, LATENT_VAR hbar, STRUCT_LEARN_PARM *sparm);
 void write_struct_model(char *file, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
 void read_struct_model(char *model_file, STRUCTMODEL * sm);
@@ -46,8 +43,8 @@ void copy_latent_var(LATENT_VAR lv1, LATENT_VAR *lv2);
 void print_latent_var(LATENT_VAR h, FILE *flatent);
 void print_label(LABEL l, FILE	*flabel);
 
-void fill_max_pool(PATTERN x, LATENT_VAR h, int kernel_ind, double * max_pool_segment, IMAGE_KERNEL_CACHE ** cached_images, int * descriptor_counts, int use_prev_descriptor_counts, WORD * words, int descriptor_offset, int * num_words, STRUCTMODEL * sm);
+void fill_max_pool(PATTERN x, LATENT_VAR h, int kernel_ind, IMAGE_KERNEL_CACHE ** cached_images, WORD * words, int descriptor_offset, int * num_words, STRUCTMODEL * sm);
 
-void get_descriptor_counts_entire_bbox(POINT_AND_DESCRIPTOR * points_and_descriptors, int start_x, int start_y, int num_across, int num_down, int total_num_down, int * descriptor_counts, int kernel_ind, WORD * words, int descriptor_offset, int * num_words, STRUCTMODEL * sm);
+void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, int start_x, int start_y, int num_across, int num_down, int total_num_down, int kernel_ind, WORD * words, int descriptor_offset, int * num_words, STRUCTMODEL * sm);
 
 #endif

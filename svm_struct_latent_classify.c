@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include "svm_struct_latent_api.h"
 
-#define KERNEL_INFO_FILE "../data/kernel_info.txt"
+#define KERNEL_INFO_FILE "data/kernel_info.txt"
 
 void read_input_parameters(int argc, char **argv, char *testfile, char *modelfile, char *labelfile, char *latentfile, char *resultfile, STRUCT_LEARN_PARM *sparm);
 

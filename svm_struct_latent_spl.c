@@ -45,7 +45,7 @@
 
 #define DEBUG_LEVEL 0
 
-#define KERNEL_INFO_FILE "../data/kernel_info.txt"
+#define KERNEL_INFO_FILE "data/kernel_info.txt"
 
 int mosek_qp_optimize(double**, double*, double*, long, double, double*);
 
@@ -97,16 +97,16 @@ double* add_list_nn(SVECTOR *a, long totwords)
     return(sum);
 }
 
-void find_most_violated_constraint(EXAMPLE *ex, LABEL *ybar, LATENT_VAR *hbar, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm) {
+void find_most_violated_constraint(EXAMPLE *ex, LABEL *ybar, LATENT_VAR *hbar, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm) {
   switch (sparm->margin_type) {
-  case 0: find_most_violated_constraint_marginrescaling (ex->x, ex->h, ex->y, ybar, hbar, cached_images, sm, sparm); break;
-  case 1: find_most_violated_constraint_differenty (ex->x, ex->h, ex->y, ybar, hbar, cached_images, sm, sparm); break;
+  case 0: find_most_violated_constraint_marginrescaling (ex->x, ex->h, ex->y, ybar, hbar, cached_images, valid_kernels, sm, sparm); break;
+  case 1: find_most_violated_constraint_differenty (ex->x, ex->h, ex->y, ybar, hbar, cached_images, valid_kernels, sm, sparm); break;
   default: printf ("Unrecognized margin_type '%d'\n", sparm->margin_type);
     exit(1);
   }
 }
 
-double current_obj_val(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, double C, int *valid_examples) {
+double current_obj_val(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, double C, int *valid_examples, int ** valid_example_kernels) {
 
   long i, j;
   SVECTOR *f, *fy, *fybar, *lhs;
@@ -122,12 +122,11 @@ double current_obj_val(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CACH
   for (i=0;i<m;i++) {
 		if(!valid_examples[i])
 			continue;
-    find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, sm, sparm);
+                find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, valid_example_kernels[i], sm, sparm);
     /* get difference vector */
     fy = copy_svector(fycache[i]);
-    int * descriptor_counts = calloc(sm->sizePsi, sizeof(int));
-    fybar = psi(ex[i].x,ybar,hbar,cached_images,descriptor_counts,0,sm,sparm);
-    free(descriptor_counts);
+    zero_svector_parts(valid_example_kernels[i], fy,sm);
+    fybar = psi(ex[i].x,ybar,hbar,cached_images,valid_example_kernels[i],sm,sparm);
     lossval = loss(ex[i].y,ybar,hbar,sparm);
 
     /* scale difference vector */
@@ -193,9 +192,9 @@ void* handle_fmvc(void* inputa)
         }
         else  //have to do the job
         {
-            find_most_violated_constraint(&(background->ex_list[curr_task]),
-                &(background->ybar_list[curr_task]), &(background->hbar_list[curr_task]),
-                 background->cached_images, background->sm, background->sparm);
+          if (background->valid_examples[curr_task]) {
+            find_most_violated_constraint(&(background->ex_list[curr_task]), &(background->ybar_list[curr_task]), &(background->hbar_list[curr_task]), background->cached_images, background->valid_example_kernels[curr_task], background->sm, background->sparm);
+          }
              pthread_mutex_lock(background->completed_lock);
              int completed_tasks = *(background->completed_tasks);
              *(background->completed_tasks)= completed_tasks + 1;
@@ -206,7 +205,7 @@ void* handle_fmvc(void* inputa)
 }
 
 
-void find_most_violated_constraint_parallel(int m,EXAMPLE* ex_list, LABEL* ybar_list, LATENT_VAR* hbar_list, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm)
+void find_most_violated_constraint_parallel(int m,EXAMPLE* ex_list, LABEL* ybar_list, LATENT_VAR* hbar_list, IMAGE_KERNEL_CACHE ** cached_images, int * valid_examples, int ** valid_example_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm)
 {
     int num_threads=10;
     int curr_task = 0;
@@ -218,6 +217,8 @@ void find_most_violated_constraint_parallel(int m,EXAMPLE* ex_list, LABEL* ybar_
     pthread_mutex_init(&curr_lock, NULL);
 
     fmvc_job background;
+    background.valid_example_kernels = valid_example_kernels;
+    background.valid_examples = valid_examples;
     background.m = m;
     background.curr_task = &curr_task;
     background.completed_tasks = &completed_tasks;
@@ -257,7 +258,7 @@ void find_most_violated_constraint_parallel(int m,EXAMPLE* ex_list, LABEL* ybar_
     }*/
 }
 
-SVECTOR* find_cutting_plane(EXAMPLE *ex, SVECTOR **fycache, double *margin, long m, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples) {
+SVECTOR* find_cutting_plane(EXAMPLE *ex, SVECTOR **fycache, double *margin, long m, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples, int** valid_example_kernels) {
 
   long i, j;
   SVECTOR *f, *fy, *fybar, *lhs;
@@ -287,7 +288,7 @@ SVECTOR* find_cutting_plane(EXAMPLE *ex, SVECTOR **fycache, double *margin, long
   struct timeval start_time;
   struct timeval finish_time;
   gettimeofday(&start_time, NULL);
-  find_most_violated_constraint_parallel(m,ex, ybar_list, hbar_list, cached_images, sm, sparm);
+  find_most_violated_constraint_parallel(m,ex, ybar_list, hbar_list, cached_images,valid_examples, valid_example_kernels,  sm, sparm);
   gettimeofday(&finish_time, NULL);
   int microseconds = 1e6 * (int)(finish_time.tv_sec - start_time.tv_sec) + (int)(finish_time.tv_usec - start_time.tv_usec);
 
@@ -299,9 +300,8 @@ SVECTOR* find_cutting_plane(EXAMPLE *ex, SVECTOR **fycache, double *margin, long
 
     /* get difference vector */
     fy = copy_svector(fycache[i]);
-    int * descriptor_counts = calloc(sm->sizePsi, sizeof(int));
-    fybar = psi(ex[i].x,ybar_list[i],hbar_list[i],cached_images,descriptor_counts,0,sm,sparm);
-    free(descriptor_counts);
+    zero_svector_parts(valid_example_kernels[i], fy,sm);
+    fybar = psi(ex[i].x,ybar_list[i],hbar_list[i],cached_images, valid_example_kernels[i],sm,sparm);
     lossval = loss(ex[i].y,ybar_list[i],hbar_list[i],sparm);
     free_label(ybar);
     free_latent_var(hbar);
@@ -400,96 +400,94 @@ long *randperm(long m, long n)
 }
 
 /* stochastic subgradient descent for solving the convex structural SVM problem */
-double stochastic_subgradient_descent(double *w, long m, int MAX_ITER, double C, double epsilon, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples) {
+//double stochastic_subgradient_descent(double *w, long m, int MAX_ITER, double C, double epsilon, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples) {
+//
+//	/* constants */
+//	int subset_size = 10;
+//
+//	long *valid_indices;
+//	long num_valid = 0;
+//	long *perm;
+//
+//	int iter, i;
+//	double learn_rate, lambda = 1.0/C;
+//	int is_valid, example_index;
+//  SVECTOR *fy, *fybar;
+//  LABEL       ybar;
+//  LATENT_VAR hbar;
+//  double lossval, primal_obj;
+//	double *new_w = (double *) my_malloc((sm->sizePsi+1)*sizeof(double));
+//
+//  printf("Running stochastic structural SVM solver: "); fflush(stdout); 
+//
+//	valid_indices = (long *) my_malloc(m*sizeof(long));
+//	for(i=0;i<m;i++) {
+//		if(valid_examples[i]) {
+//			valid_indices[num_valid] = i;
+//			num_valid++;
+//		}
+//	}
+//	if(num_valid < subset_size)
+//		subset_size = num_valid;
+//
+//	/* initializations */
+//	iter = 0;
+//  srand(time(NULL));
+//	clear_nvector(w,sm->sizePsi);
+//
+//	while(iter<MAX_ITER) {
+//
+//		printf("."); fflush(stdout);
+//
+//		/* learning rate for iteration */
+//		iter+=1;
+//		learn_rate = 1.0/(lambda*iter);
+//
+//		for(i=0;i<=sm->sizePsi;i++)
+//			new_w[i] = (1.0-learn_rate*lambda)*w[i];
+//
+//		/* randomly select a subset of examples */
+//		perm = randperm(num_valid,subset_size);
+//
+//		for(i=0;i<subset_size;i++) {
+//			/* find subgradient */
+//		  find_most_violated_constraint(&(ex[valid_indices[perm[i]]]), &ybar, &hbar, cached_images, sm, sparm);
+//   		lossval = loss(ex[valid_indices[perm[i]]].y,ybar,hbar,sparm);
+//   		fy = copy_svector(fycache[valid_indices[perm[i]]]);
+//   		fybar = psi(ex[valid_indices[perm[i]]].x,ybar,hbar,cached_images,sm,sparm);
+//			/* update weight vector */
+//			/* ignoring example cost for simplicity */
+//			add_vector_ns(new_w,fy,ex[valid_indices[perm[i]]].x.example_cost*learn_rate/subset_size);
+//			add_vector_ns(new_w,fybar,-ex[valid_indices[perm[i]]].x.example_cost*learn_rate/subset_size);
+//
+//			/* free variables */
+//   		free_label(ybar);
+//   		free_latent_var(hbar);
+//			free_svector(fy);
+//			free_svector(fybar);
+//		}
+//
+//		free(perm);
+//
+//		for(i=0;i<=sm->sizePsi;i++)
+//			w[i] = new_w[i];
+//		/* optional step: project weights to ball of radius 1/sqrt{lambda} */
+//		project_weights(w,sm->sizePsi,lambda);
+//
+//	}
+//
+//	free(valid_indices);
+//	free(new_w);
+//
+//  printf(" Inner loop optimization finished.\n"); fflush(stdout); 
+//
+//	/* return primal objective value */
+//        primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, valid_examples);
+//	return(primal_obj);
+//
+//}
 
-	/* constants */
-	int subset_size = 10;
-
-	long *valid_indices;
-	long num_valid = 0;
-	long *perm;
-
-	int iter, i;
-	double learn_rate, lambda = 1.0/C;
-	int is_valid, example_index;
-  SVECTOR *fy, *fybar;
-  LABEL       ybar;
-  LATENT_VAR hbar;
-  double lossval, primal_obj;
-	double *new_w = (double *) my_malloc((sm->sizePsi+1)*sizeof(double));
-
-  printf("Running stochastic structural SVM solver: "); fflush(stdout); 
-
-	valid_indices = (long *) my_malloc(m*sizeof(long));
-	for(i=0;i<m;i++) {
-		if(valid_examples[i]) {
-			valid_indices[num_valid] = i;
-			num_valid++;
-		}
-	}
-	if(num_valid < subset_size)
-		subset_size = num_valid;
-
-	/* initializations */
-	iter = 0;
-  srand(time(NULL));
-	clear_nvector(w,sm->sizePsi);
-
-	while(iter<MAX_ITER) {
-
-		printf("."); fflush(stdout);
-
-		/* learning rate for iteration */
-		iter+=1;
-		learn_rate = 1.0/(lambda*iter);
-
-		for(i=0;i<=sm->sizePsi;i++)
-			new_w[i] = (1.0-learn_rate*lambda)*w[i];
-
-		/* randomly select a subset of examples */
-		perm = randperm(num_valid,subset_size);
-
-		for(i=0;i<subset_size;i++) {
-			/* find subgradient */
-		  find_most_violated_constraint(&(ex[valid_indices[perm[i]]]), &ybar, &hbar, cached_images, sm, sparm);
-   		lossval = loss(ex[valid_indices[perm[i]]].y,ybar,hbar,sparm);
-   		fy = copy_svector(fycache[valid_indices[perm[i]]]);
-		int * descriptor_counts = calloc(sm->sizePsi, sizeof(int));
-   		fybar = psi(ex[valid_indices[perm[i]]].x,ybar,hbar,cached_images,descriptor_counts,0,sm,sparm);
-		free(descriptor_counts);
-			/* update weight vector */
-			/* ignoring example cost for simplicity */
-			add_vector_ns(new_w,fy,ex[valid_indices[perm[i]]].x.example_cost*learn_rate/subset_size);
-			add_vector_ns(new_w,fybar,-ex[valid_indices[perm[i]]].x.example_cost*learn_rate/subset_size);
-
-			/* free variables */
-   		free_label(ybar);
-   		free_latent_var(hbar);
-			free_svector(fy);
-			free_svector(fybar);
-		}
-
-		free(perm);
-
-		for(i=0;i<=sm->sizePsi;i++)
-			w[i] = new_w[i];
-		/* optional step: project weights to ball of radius 1/sqrt{lambda} */
-		project_weights(w,sm->sizePsi,lambda);
-
-	}
-
-	free(valid_indices);
-	free(new_w);
-
-  printf(" Inner loop optimization finished.\n"); fflush(stdout); 
-
-	/* return primal objective value */
-        primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, valid_examples);
-	return(primal_obj);
-
-}
-
-double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double epsilon, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples) {
+double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double epsilon, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples, int** valid_example_kernels) {
   long i,j;
   double *alpha;
   DOC **dXc; /* constraint matrix */
@@ -552,7 +550,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
   struct timeval finish_time;
   gettimeofday(&start_time, NULL);
 
-        new_constraint = find_cutting_plane(ex, fycache, &margin, m, cached_images, sm, sparm, valid_examples);
+        new_constraint = find_cutting_plane(ex, fycache, &margin, m, cached_images, sm, sparm, valid_examples, valid_example_kernels);
  	value = margin - sprod_ns(w, new_constraint);
 	while((value>threshold+epsilon)&&(iter<MAX_ITER)) {
 		iter+=1;
@@ -676,7 +674,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 		else
 			threshold = 0.0;
 
- 		new_constraint = find_cutting_plane(ex, fycache, &margin, m, cached_images, sm, sparm, valid_examples);
+ 		new_constraint = find_cutting_plane(ex, fycache, &margin, m, cached_images, sm, sparm, valid_examples, valid_example_kernels);
    	value = margin - sprod_ns(w, new_constraint);
 
 		if((iter % CLEANUP_CHECK) == 0)
@@ -687,7 +685,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 
  	} // end cutting plane while loop 
 
-	primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, valid_examples);
+	primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, valid_examples, valid_example_kernels);
 
   printf(" Inner loop optimization finished.\n"); fflush(stdout); 
       
@@ -723,7 +721,7 @@ int check_acs_convergence(int *prev_valid_examples, int *valid_examples, long m)
 	return converged;
 }
 
-int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples, double spl_weight) {
+int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples, int* kernel_choice, double spl_weight) {
 
 	long i, j;
 
@@ -744,11 +742,10 @@ int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPL
 		penalty = DBL_MAX;
 
 	for (i=0;i<m;i++) {
-	  find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, sm, sparm);
+	  find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, kernel_choice, sm, sparm);
 		fy = copy_svector(fycache[i]);
-		int * descriptor_counts = calloc(sm->sizePsi, sizeof(int));
-		fybar = psi(ex[i].x,ybar,hbar,cached_images,descriptor_counts,0,sm,sparm);
-		free(descriptor_counts);
+        zero_svector_parts(kernel_choice, fy, sm); 
+		fybar = psi(ex[i].x,ybar,hbar,cached_images,kernel_choice,sm,sparm);
 		slack[i].index = i;
 		slack[i].val = loss(ex[i].y,ybar,hbar,sparm);
 		for (f=fy;f;f=f->next) {
@@ -789,7 +786,10 @@ int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPL
 	return nValid;
 }
 
-double get_init_spl_weight(long m, double C, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm) {
+/*can be used to get the single weight for original SPL or to get one of the kernel weights for multi-kernel SPL*/
+/*for original SPL, just set all entries in valid_kernels to 1*/
+/*for multi-kernel SPL, set only the entry of the kernel you're interested in to 1*/
+double get_init_spl_weight(long m, double C, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm) {
 
 	long i, j;
 
@@ -801,11 +801,10 @@ double get_init_spl_weight(long m, double C, SVECTOR **fycache, EXAMPLE *ex, IMA
 	int half;
 
 	for (i=0;i<m;i++) {
-	  find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, sm, sparm);
+	  find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, valid_kernels, sm, sparm);
 		fy = copy_svector(fycache[i]);
-		int * descriptor_counts = calloc(sm->sizePsi, sizeof(int));
-		fybar = psi(ex[i].x,ybar,hbar,cached_images,descriptor_counts,0,sm,sparm);
-		free(descriptor_counts);
+                zero_svector_parts(valid_kernels, fy, sm);
+		fybar = psi(ex[i].x,ybar,hbar,cached_images,valid_kernels,sm,sparm);
 		slack[i].index = i;
 		slack[i].val = loss(ex[i].y,ybar,hbar,sparm);
 		for (f=fy;f;f=f->next) {
@@ -840,41 +839,90 @@ double get_init_spl_weight(long m, double C, SVECTOR **fycache, EXAMPLE *ex, IMA
 	return(init_spl_weight);
 }
 
-double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double epsilon, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples, double spl_weight) {
+double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double epsilon, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples, int ** valid_example_kernels, double * spl_weight) {
 
-	long i;
-	int iter = 0, converged, nValid;
+  long i, k, j;
+	int iter = 0, converged;
+
+    int* nValids = calloc(sm->num_kernels,sizeof(int));
+
 	double last_relaxed_primal_obj = DBL_MAX, relaxed_primal_obj, decrement;
 
 	int *prev_valid_examples = (int *) malloc(m*sizeof(int));
+    int** prev_valid_example_kernels=(int**) malloc(m*sizeof(int*));
+    for(i = 0; i<m;i++)
+    {
+        prev_valid_example_kernels[i] = malloc(sm->num_kernels*sizeof(int));
+        for(k=0; k<sm->num_kernels;k++)
+            prev_valid_example_kernels[i][k] = 1;
+    }
+
 	double *best_w = (double *) malloc((sm->sizePsi+1)*sizeof(double));
 
 	for (i=0;i<sm->sizePsi+1;i++)
 		best_w[i] = w[i];
-	nValid = update_valid_examples(w, m, C, fycache, ex, cached_images, sm, sparm, valid_examples, spl_weight);
-	last_relaxed_primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, valid_examples);
-	if(nValid < m)
-		last_relaxed_primal_obj += (double)(m-nValid)/((double)spl_weight);
+   
+    memset(valid_examples, 0, m * sizeof(int));
+    int* this_kernels_examples = (int*) calloc( m, sizeof(int)); 
+    for (i=0;i<sm->num_kernels;i++)
+    {
+      memset(this_kernels_examples, 0, m * sizeof(int));
+      nValids[i] = update_valid_examples(w, m, C, fycache, ex, cached_images, sm, sparm, this_kernels_examples,valid_example_kernels[i], spl_weight[i]);
+        for(j=0; j<m;j++)
+        {
+            valid_example_kernels[j][i] = this_kernels_examples[j];
+	    if (this_kernels_examples[j]) {
+	      valid_examples[j] = 1;
+	    }
+        }
+    }
+    last_relaxed_primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, valid_examples, valid_example_kernels);
+    
+    for (i=0;i<sm->num_kernels;i++) {
+        last_relaxed_primal_obj += (double)(m-nValids[i])/((double)spl_weight[i]);
+    }
 
 	for (i=0;i<m;i++) {
 		prev_valid_examples[i] = 0;
 	}
 
 	for (iter=0;;iter++) {
-	        nValid = update_valid_examples(w, m, C, fycache, ex, cached_images, sm, sparm, valid_examples, spl_weight);
-		printf("ACS Iteration %d: number of examples = %d\n",iter,nValid); fflush(stdout);
-		converged = check_acs_convergence(prev_valid_examples,valid_examples,m);
+	  memset(valid_examples, 0, m * sizeof(int));
+	  for (i=0;i<sm->num_kernels;i++)
+	   {
+	     memset(this_kernels_examples, 0, m * sizeof(int));
+	     nValids[i] = update_valid_examples(w, m, C, fycache, ex, cached_images, sm, sparm, this_kernels_examples,valid_example_kernels[i], spl_weight[i]);
+	      for(j=0; j<m;j++)
+		{
+		  valid_example_kernels[j][i] = this_kernels_examples[j];
+		  if (this_kernels_examples[j]) {
+		    valid_examples[j] = 1;
+		  }
+		}
+	   }
+
+
+
+		printf("ACS Iteration %d: number of examples for 0th kernel = %d\n",iter,nValids[0]); fflush(stdout);
+		//RAFI broken
+        converged = check_acs_convergence(prev_valid_examples,valid_examples,m);
 		if(converged) {
 			break;
 		}
+
 		for (i=0;i<sm->sizePsi+1;i++)
 			w[i] = 0.0;
-		if(!sparm->optimizer_type)
-		  relaxed_primal_obj = cutting_plane_algorithm(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, sm, sparm, valid_examples);
-		else
-		  relaxed_primal_obj = stochastic_subgradient_descent(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, sm, sparm, valid_examples);
-		if(nValid < m)
-			relaxed_primal_obj += (double)(m-nValid)/((double)spl_weight);
+
+		if(!sparm->optimizer_type) {
+		  relaxed_primal_obj = cutting_plane_algorithm(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, sm, sparm, valid_examples, valid_example_kernels);
+		} else {
+                  assert(0);
+                  //relaxed_primal_obj = stochastic_subgradient_descent(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, sm, sparm, valid_examples);
+                }
+        
+        for (i=0;i<sm->num_kernels;i++)
+            relaxed_primal_obj += (double)(m-nValids[i])/((double)spl_weight[i]);
+
 		decrement = last_relaxed_primal_obj-relaxed_primal_obj;
     printf("relaxed primal objective: %.4f\n", relaxed_primal_obj);
    	printf("decrement: %.4f\n", decrement); fflush(stdout);
@@ -900,6 +948,8 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
 		}
 	}
 
+	   free(this_kernels_examples);
+
 	for (i=0;i<m;i++) {
 		prev_valid_examples[i] = 1;
 	}
@@ -911,7 +961,7 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
 	}
 
 	double primal_obj;
-	primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, prev_valid_examples);
+	primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, prev_valid_examples, valid_example_kernels);
 	
 	free(prev_valid_examples);
 	free(best_w);
@@ -1001,7 +1051,7 @@ int main(int argc, char* argv[]) {
 
 	/* self-paced learning variables */
 	double init_spl_weight;
-	double spl_weight;
+	double * spl_weight;
 	double spl_factor;
 	int *valid_examples;
  
@@ -1049,16 +1099,22 @@ int main(int argc, char* argv[]) {
   printf("sm.sizePsi: %ld\n", sm.sizePsi); fflush(stdout);
   
 
+
+
   /* impute latent variable for first iteration */
   init_latent_variables(&sample,&learn_parm,&sm,&sparm);
 
+  int k;
+
+  int * all_ones = calloc(sm.num_kernels, sizeof(int));
+  for (k = 0; k < sm.num_kernels; k++) {
+    all_ones[k] = 1;
+  }
 
   /* prepare feature vector cache for correct labels with imputed latent variables */
   fycache = (SVECTOR**)malloc(m*sizeof(SVECTOR*));
   for (i=0;i<m;i++) {
-    int * descriptor_counts = calloc(sm.sizePsi, sizeof(int));
-    fy = psi(ex[i].x, ex[i].y, ex[i].h, cached_images, descriptor_counts, 0, &sm, &sparm);
-    free(descriptor_counts);
+    fy = psi(ex[i].x, ex[i].y, ex[i].h, cached_images, all_ones, &sm, &sparm);
     diff = add_list_ss(fy);
     free_svector(fy);
     fy = diff;
@@ -1066,27 +1122,35 @@ int main(int argc, char* argv[]) {
   }
 
  	/* learn initial weight vector using all training examples */
+  int j;
+  int ** valid_example_kernels = malloc(m * sizeof(int*));
+  for (i = 0; i < m; ++i) {
+    valid_example_kernels[i] = calloc(sm.num_kernels, sizeof(int));
+  }
 	valid_examples = (int *) malloc(m*sizeof(int));
 	if (init_spl_weight>0.0) {
 		printf("INITIALIZATION\n"); fflush(stdout);
 		for (i=0;i<m;i++) {
 			valid_examples[i] = 1;
+			for (j = 0; j < sm.num_kernels; ++j) {
+			  valid_example_kernels[i][j] = 1;
+			}
 		}
 		int initIter;
 		for (initIter=0;initIter<2;initIter++) {
-			if(!sparm.optimizer_type)
-			  primal_obj = cutting_plane_algorithm(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples);
-			else
-			  primal_obj = stochastic_subgradient_descent(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples);
+		  if(!sparm.optimizer_type) {
+		    primal_obj = cutting_plane_algorithm(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples, valid_example_kernels);
+		  } else {
+		    assert(0);
+			  //primal_obj = stochastic_subgradient_descent(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples);
+		  }
   		for (i=0;i<m;i++) {
    	 		free_latent_var(ex[i].h);
    	 		ex[i].h = infer_latent_variables(ex[i].x, ex[i].y, cached_images, &sm, &sparm);
    		}
 	    for (i=0;i<m;i++) {
   	    free_svector(fycache[i]);
-	    int * descriptor_counts = calloc(sm.sizePsi, sizeof(int));
-	    fy = psi(ex[i].x, ex[i].y, ex[i].h, cached_images, descriptor_counts, 0, &sm, &sparm);
-	    free(descriptor_counts);
+	    fy = psi(ex[i].x, ex[i].y, ex[i].h, cached_images, all_ones, &sm, &sparm);
      	 diff = add_list_ss(fy);
      	 free_svector(fy);
      	 fy = diff;
@@ -1113,17 +1177,38 @@ int main(int argc, char* argv[]) {
 	FILE	*flatent = fopen(latentfile,"w");
 	clock_t start = clock();
 
-	spl_weight = init_spl_weight;
+        spl_weight = calloc(sm.num_kernels, sizeof(double));
+        
+        for (k = 0; k < sm.num_kernels; k++) {
+          spl_weight[k] = init_spl_weight;
+        }
+
+       
   while ((outer_iter<2)||((!stop_crit)&&(outer_iter<MAX_OUTER_ITER))) { 
 		if(!outer_iter && init_spl_weight) {
-		  spl_weight = get_init_spl_weight(m, C, fycache, ex, cached_images, &sm, &sparm);
-      printf("Setting initial spl weight to %f\n",spl_weight);
-		}
+                  int * valid_kernels = calloc(sm.num_kernels, sizeof(int));
+                  if (sparm.multi_kernel_spl) {
+                    for (k = 0; k < sm.num_kernels; ++k) {
+                      valid_kernels[k] = 1;
+                      spl_weight[k] = get_init_spl_weight(m, C, fycache, ex, cached_images, valid_kernels, &sm, &sparm);
+                      valid_kernels[k] = 0;
+                    }
+                  } else {
+                    for (k = 0; k < sm.num_kernels; ++k) {
+                      valid_kernels[k] = 1;
+                    }
+                    spl_weight[0] = get_init_spl_weight(m, C, fycache, ex, cached_images, valid_kernels, &sm, &sparm);
+		    for (k = 1; k < sm.num_kernels; ++k) {
+		      spl_weight[k] = spl_weight[0];
+		    }
+		  } 
+                  free(valid_kernels);
+                }
     printf("OUTER ITER %d\n", outer_iter); 
     /* cutting plane algorithm */
-    //primal_obj = cutting_plane_algorithm(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples);
+
 		/* solve biconvex self-paced learning problem */
-               primal_obj = alternate_convex_search(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples, spl_weight);
+    primal_obj = alternate_convex_search(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples, valid_example_kernels, spl_weight);
 		int nValid = 0;
 		for (i=0;i<m;i++) {
 			fprintf(fexamples,"%d ",valid_examples[i]);
@@ -1167,9 +1252,7 @@ int main(int argc, char* argv[]) {
     /* re-compute feature vector cache */
     for (i=0;i<m;i++) {
       free_svector(fycache[i]);
-      int * descriptor_counts = calloc(sm.sizePsi, sizeof(int));
-      fy = psi(ex[i].x, ex[i].y, ex[i].h, cached_images, descriptor_counts, 0, &sm, &sparm);
-      free(descriptor_counts);
+      fy = psi(ex[i].x, ex[i].y, ex[i].h, cached_images, all_ones, &sm, &sparm);
       diff = add_list_ss(fy);
       free_svector(fy);
       fy = diff;
@@ -1189,8 +1272,9 @@ int main(int argc, char* argv[]) {
 			printf("LOSS ITER: %d\n",loss_iter);
 		}
 
-    outer_iter++;  
-		spl_weight /= spl_factor;
+    outer_iter++;
+        for(i=0;i<sm.num_kernels;i++) 
+    		spl_weight[i] /= spl_factor;
   } // end outer loop
 	fclose(fexamples);
 	fclose(ftime);
@@ -1214,6 +1298,8 @@ int main(int argc, char* argv[]) {
     free_svector(fycache[i]);
   }
   free(fycache);
+
+  free(all_ones);
 
 	free(valid_examples);
    

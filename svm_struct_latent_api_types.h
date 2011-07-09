@@ -28,6 +28,8 @@ typedef struct pattern {
   double example_cost;
   int width;
   int height;
+  int bbox_width;
+  int bbox_height;
   int * descriptor_num_downs;
   int * descriptor_num_acrosses;
   int * descriptor_top_left_xs;
@@ -124,6 +126,7 @@ typedef struct struct_learn_parm {
 	int rng_seed;
 	int size_hog;
 	int n_classes;
+  int multi_kernel_spl;
 } STRUCT_LEARN_PARM;
 
 typedef struct spl_variable_struct {
@@ -146,6 +149,8 @@ typedef struct fmvc_job {
     IMAGE_KERNEL_CACHE** cached_images;
     STRUCTMODEL* sm;
     STRUCT_LEARN_PARM* sparm;
+    int* valid_examples;
+    int** valid_example_kernels;
 } fmvc_job;
 
 #endif
