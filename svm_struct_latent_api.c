@@ -577,7 +577,7 @@ double compute_w_T_psi(PATTERN *x, int position_x, int position_y, int class, IM
 }
 
 
-void classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm) {
+double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int impute) {
 /*
   Makes prediction with input pattern x with weight vector in sm->w,
   i.e., computing argmax_{(y,h)} <w,psi(x,y,h)>. 
@@ -602,6 +602,10 @@ void classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_CA
 	for(cur_position_y = 0; cur_position_y < height; cur_position_y++) {
 		for(cur_position_x = 0; cur_position_x < width; cur_position_x++) {
 			for(cur_class = 0; cur_class < sparm->n_classes; cur_class++) {
+              if(!impute) {
+                  cur_position_x = h->position_x;
+                  cur_position_y = h->position_y;
+              }
 			  score = compute_w_T_psi(&x, cur_position_x, cur_position_y, cur_class, cached_images, valid_kernels, sm, sparm);
 				if(score > max_score) {
 					max_score = score;
@@ -610,12 +614,16 @@ void classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_CA
 					h->position_y = cur_position_y;
 				}
 			}
+            if(!impute)
+                break;
 		}
+        if(!impute)
+            break;
 	}
 
         free(valid_kernels);
         
-	return;
+	return max_score;
 }
 
 void initialize_most_violated_constraint_search(PATTERN x, LATENT_VAR hstar, LABEL y, LABEL *ybar, LATENT_VAR *hbar, double * max_score, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm) {
@@ -916,6 +924,11 @@ void print_latent_var(LATENT_VAR h, FILE *flatent)
 {
 	fprintf(flatent,"%d %d ",h.position_x,h.position_y);
 	fflush(flatent);
+}
+
+void read_latent_var(LATENT_VAR *h, FILE *finlatent)
+{
+    fprintf(finlatent,"%d%d",&h->position_x,&h->position_y);
 }
 
 void print_label(LABEL l, FILE	*flabel)

@@ -1028,7 +1028,7 @@ double compute_current_loss(SAMPLE val, IMAGE_KERNEL_CACHE ** cached_images, STR
 	double store;
 	for(i = 0; i < val.n; i++)
 	{
-	        classify_struct_example(val.examples[i].x,&y,&h,cached_images,sm,sparm);
+	        classify_struct_example(val.examples[i].x,&y,&h,cached_images,sm,sparm,1);
 		store = loss(val.examples[i].y,y,h,sparm);
 		cur_loss += store;
 	}
@@ -1140,11 +1140,22 @@ int main(int argc, char* argv[]) {
 
  	/* learn initial weight vector using all training examples */
   int j;
-  int ** valid_example_kernels = malloc(m * sizeof(int*));
+
+  int** allon_example_kernels = malloc(m*sizeof(int*));
+  int** valid_example_kernels = malloc(m * sizeof(int*));
   for (i = 0; i < m; ++i) {
+    allon_example_kernels[i] = calloc(sm.num_kernels, sizeof(int));
+    for(j=0; j<sm.num_kernels; j++) {
+        allon_example_kernels[i][j]=1;
+    }
     valid_example_kernels[i] = calloc(sm.num_kernels, sizeof(int));
   }
 	valid_examples = (int *) malloc(m*sizeof(int));
+    int* allon_examples = (int*) malloc(m*sizeof(int));
+    for(i=0; i<m; i++) {
+        allon_examples[i]=1;
+    } 
+
 	if (init_spl_weight>0.0) {
 		printf("INITIALIZATION\n"); fflush(stdout);
 		for (i=0;i<m;i++) {
@@ -1200,7 +1211,19 @@ int main(int argc, char* argv[]) {
           spl_weight[k] = init_spl_weight;
         }
 
-       
+    //printing some stuff before doing outer loop
+    primal_obj = current_obj_val(ex, fycache, m, cached_images, &sm, &sparm, C, allon_examples, allon_example_kernels);
+    printf("primal objective (AFTER INITIALIZATION): %f\n", primal_obj);
+    double* temp_w = create_nvector(sm.sizePsi);
+    clear_nvector(temp_w, sm.sizePsi);
+    double* backup_w = sm.w;
+    sm.w = temp_w;
+    primal_obj = current_obj_val(ex, fycache, m, cached_images, &sm, &sparm, C, allon_examples, allon_example_kernels);
+    printf("primal objective (AFTER INITIALIZATION, W=0): %f\n", primal_obj);
+    sm.w = backup_w; //undo any harm done by me
+    free(temp_w); 
+
+    //this is the outer loop.   
     while ((outer_iter<2)||((!stop_crit)&&(outer_iter<MAX_OUTER_ITER))) { 
         if(!outer_iter && init_spl_weight) {
             int * valid_kernels = calloc(sm.num_kernels, sizeof(int));
@@ -1221,6 +1244,7 @@ int main(int argc, char* argv[]) {
 		    }  
             free(valid_kernels);
        }
+       printf("spl weights are %.4f %.4f %.4f %.4f %.4f\n", spl_weight[0], spl_weight[1], spl_weight[2], spl_weight[3], spl_weight[4]);
     printf("\n\n\nOUTER ITER %d\n\n\n", outer_iter); 
     /* cutting plane algorithm */
 
@@ -1259,12 +1283,14 @@ int main(int argc, char* argv[]) {
   
     /* impute latent variable using updated weight vector */
 		if(nValid) {
-    	for (i=0;i<m;i++) {
-      	free_latent_var(ex[i].h);
-      	ex[i].h = infer_latent_variables(ex[i].x, ex[i].y, cached_images, &sm, &sparm);
-    	}
+        	for (i=0;i<m;i++) {
+           	    free_latent_var(ex[i].h);
+      	        ex[i].h = infer_latent_variables(ex[i].x, ex[i].y, cached_images, &sm, &sparm);
+    	    }
 			latent_update++;
 		}
+        primal_obj = current_obj_val(ex, fycache, m, cached_images, &sm, &sparm, C, allon_examples, allon_example_kernels);
+        printf("primal object (AFTER IMPUTATION): %f\n", primal_obj);
 
     /* re-compute feature vector cache */
     for (i=0;i<m;i++) {

@@ -18,12 +18,23 @@
 #include "svm_struct_latent_api.h"
 
 #define KERNEL_INFO_FILE "data/kernel_info.txt"
+#define max(x,y) = ( ((x)>(y)) ? (x) : (y))
+void read_input_parameters(int argc, char **argv, char *testfile, char *modelfile, char *labelfile, char *latentfile, char *inlatentfile, char *resultfile, STRUCT_LEARN_PARM *sparm);
 
-void read_input_parameters(int argc, char **argv, char *testfile, char *modelfile, char *labelfile, char *latentfile, char *resultfile, STRUCT_LEARN_PARM *sparm);
-
+double hingeloss(loss, score)
+{
+    printf("loss %f score %f\n", loss, score);
+    if(loss<0)
+        return score +1;
+    else  if (1-score>0)
+        return 1-score;
+    else
+        return 0;
+}
 
 int main(int argc, char* argv[]) {
-  double avgloss,l;
+  double avgloss,l,hinge_l;
+  LABEL y;
   long i, correct;
 
   char testfile[1024];
@@ -31,8 +42,10 @@ int main(int argc, char* argv[]) {
 	char labelfile[1024];
 	char latentfile[1024];
 	char resultfile[1024];
+    char inlatentfile[1024];
 	FILE	*flabel;
 	FILE	*flatent;
+    FILE    *finlatent;
 
   STRUCTMODEL model;
   STRUCT_LEARN_PARM sparm;
@@ -40,13 +53,17 @@ int main(int argc, char* argv[]) {
   KERNEL_PARM kparm;
 
   SAMPLE testsample;
-  LABEL y;
+  
   LATENT_VAR h;
 
   /* read input parameters */
-  read_input_parameters(argc,argv,testfile,modelfile,labelfile,latentfile,resultfile,&sparm);
+  read_input_parameters(argc,argv,testfile,modelfile,labelfile,latentfile,inlatentfile,resultfile,&sparm);
 	flabel = fopen(labelfile,"w");
 	flatent = fopen(latentfile,"w");
+    if(inlatentfile[0])
+        finlatent = fopen(inlatentfile,"r"); 
+    else
+        finlatent = NULL;
 
   init_struct_model(get_sample_size(testfile), KERNEL_INFO_FILE, &model);
 
@@ -62,11 +79,25 @@ int main(int argc, char* argv[]) {
   
   avgloss = 0.0;
   correct = 0;
+  int impute = (int) (finlatent == NULL);
   for (i=0;i<testsample.n;i++) {
-    classify_struct_example(testsample.examples[i].x,&y,&h,cached_images,&model,&sparm);
+    if(finlatent)
+        read_latent_var(&h,finlatent);
+    double score = classify_struct_example(testsample.examples[i].x,&y,&h,cached_images,&model,&sparm,impute);
     l = loss(testsample.examples[i].y,y,h,&sparm);
+    hinge_l = hingeloss(l, score);
+    printf("hinge loss %f\n", hinge_l);
     avgloss += l;
-    if (l==0) correct++;
+    printf("loss %f\n", l);
+    if (l==0) 
+    {
+        correct++;
+        printf("hooray for correct\n");
+    }
+    else
+    {
+        printf("wrong\n");
+    }
 
 		print_label(y,flabel);
 		fprintf(flabel,"\n"); fflush(flabel);
@@ -79,6 +110,8 @@ int main(int argc, char* argv[]) {
   }
 	fclose(flabel);
 	fclose(flatent);
+    if(finlatent)
+        fclose(finlatent);
 
   printf("Average loss on test set: %.4f\n", avgloss/testsample.n);
   printf("Zero/one error on test set: %.4f\n", 1.0 - ((float) correct)/testsample.n);
@@ -96,7 +129,7 @@ int main(int argc, char* argv[]) {
 }
 
 
-void read_input_parameters(int argc, char **argv, char *testfile, char *modelfile, char *labelfile, char *latentfile, char *resultfile, STRUCT_LEARN_PARM *sparm) {
+void read_input_parameters(int argc, char **argv, char *testfile, char *modelfile, char *labelfile, char *latentfile, char *inlatentfile, char *resultfile, STRUCT_LEARN_PARM *sparm) {
 
   long i;
   
@@ -105,6 +138,7 @@ void read_input_parameters(int argc, char **argv, char *testfile, char *modelfil
   strcpy(labelfile, "lssvm_label");
   strcpy(latentfile, "lssvm_latent");
   strcpy(resultfile, "lssvm_result");
+  strcpy(inlatentfile,"lssvm_inlatent");
   sparm->custom_argc = 0;
 
   for (i=1;(i<argc)&&((argv[i])[0]=='-');i++) {
@@ -128,6 +162,10 @@ void read_input_parameters(int argc, char **argv, char *testfile, char *modelfil
 		strcpy(latentfile,argv[i+3]);
         if(i+4<argc)
 	        strcpy(resultfile,argv[i+4]);
+    if(i+5<argc)
+        strcpy(inlatentfile,argv[i+5]);
+    else
+        inlatentfile[0] = '\0';
 
   parse_struct_parameters(sparm);
 
