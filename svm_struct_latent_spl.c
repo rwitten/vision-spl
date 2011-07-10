@@ -207,7 +207,7 @@ void* handle_fmvc(void* inputa)
 
 void find_most_violated_constraint_parallel(int m,EXAMPLE* ex_list, LABEL* ybar_list, LATENT_VAR* hbar_list, IMAGE_KERNEL_CACHE ** cached_images, int * valid_examples, int ** valid_example_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm)
 {
-    int num_threads=10;
+    int num_threads=12;
     int curr_task = 0;
     int completed_tasks = 0;
 
@@ -809,7 +809,7 @@ double get_init_spl_weight(long m, double C, SVECTOR **fycache, EXAMPLE *ex, IMA
 	for (i=0;i<m;i++) {
 	  find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, valid_kernels, sm, sparm);
 		fy = copy_svector(fycache[i]);
-                zero_svector_parts(valid_kernels, fy, sm);
+        zero_svector_parts(valid_kernels, fy, sm);
 		fybar = psi(ex[i].x,ybar,hbar,cached_images,valid_kernels,sm,sparm);
 		slack[i].index = i;
 		slack[i].val = loss(ex[i].y,ybar,hbar,sparm);
@@ -1201,26 +1201,26 @@ int main(int argc, char* argv[]) {
         }
 
        
-  while ((outer_iter<2)||((!stop_crit)&&(outer_iter<MAX_OUTER_ITER))) { 
-		if(!outer_iter && init_spl_weight) {
-                  int * valid_kernels = calloc(sm.num_kernels, sizeof(int));
-                  if (sparm.multi_kernel_spl) {
-                    for (k = 0; k < sm.num_kernels; ++k) {
+    while ((outer_iter<2)||((!stop_crit)&&(outer_iter<MAX_OUTER_ITER))) { 
+        if(!outer_iter && init_spl_weight) {
+            int * valid_kernels = calloc(sm.num_kernels, sizeof(int));
+            if (sparm.multi_kernel_spl) {
+                for (k = 0; k < sm.num_kernels; ++k) {
                       valid_kernels[k] = 1;
                       spl_weight[k] = get_init_spl_weight(m, C, fycache, ex, cached_images, valid_kernels, &sm, &sparm);
                       valid_kernels[k] = 0;
-                    }
-                  } else {
-                    for (k = 0; k < sm.num_kernels; ++k) {
-                      valid_kernels[k] = 1;
-                    }
-                    spl_weight[0] = get_init_spl_weight(m, C, fycache, ex, cached_images, valid_kernels, &sm, &sparm);
-		    for (k = 1; k < sm.num_kernels; ++k) {
-		      spl_weight[k] = spl_weight[0];
-		    }
-		  } 
-                  free(valid_kernels);
                 }
+            } else {
+                 for (k = 0; k < sm.num_kernels; ++k) {
+                      valid_kernels[k] = 1;
+                 }
+                 spl_weight[0] = get_init_spl_weight(m, C, fycache, ex, cached_images, valid_kernels, &sm, &sparm);
+		         for (k = 1; k < sm.num_kernels; ++k) {
+		              spl_weight[k] = spl_weight[0];
+		         }
+		    }  
+            free(valid_kernels);
+       }
     printf("\n\n\nOUTER ITER %d\n\n\n", outer_iter); 
     /* cutting plane algorithm */
 
