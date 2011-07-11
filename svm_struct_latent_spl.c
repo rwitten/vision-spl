@@ -37,7 +37,7 @@
 #define STOP_PREC 1E-2
 #define UPDATE_BOUND 3
 #define MAX_CURRICULUM_ITER 10
-
+#define NUM_THREADS 12
 #define MAX_OUTER_ITER 20
 
 #define MAX(x,y) ((x) < (y) ? (y) : (x))
@@ -266,7 +266,7 @@ void* handle_fmvc(void* inputa)
 
 void find_most_violated_constraint_parallel(int m,EXAMPLE* ex_list, LABEL* ybar_list, LATENT_VAR* hbar_list, IMAGE_KERNEL_CACHE ** cached_images, int * valid_examples, int ** valid_example_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm)
 {
-    int num_threads=12;
+    pthread_t mythreads[NUM_THREADS];
     int curr_task = 0;
     int completed_tasks = 0;
 
@@ -290,11 +290,14 @@ void find_most_violated_constraint_parallel(int m,EXAMPLE* ex_list, LABEL* ybar_
     background.sm = sm;
     background.sparm = sparm;
     int i;
-    for(i=0; i < num_threads; i ++)
+    for(i=0; i < NUM_THREADS; i++)
     {
-        pthread_t mythread;
-        pthread_create(&mythread, NULL, handle_fmvc, &background);
-//        fire_off_job();
+        pthread_create(&mythreads[i], NULL, handle_fmvc, &background);
+    }
+
+    for(i=0; i<NUM_THREADS;i++)
+    {
+        pthread_join(mythreads[i],NULL);
     }
 
     int more_work_to_do = 1;
@@ -1314,9 +1317,13 @@ int main(int argc, char* argv[]) {
 		for (i=0;i<m;i++) {
 			fprintf(fexamples,"%d ",valid_examples[i]);
 			print_latent_var(ex[i].h,flatent);
-			if(valid_examples[i]) {
-				nValid++;
+            int isValid = 1;
+            int this_kernel;
+	        for(this_kernel=0;this_kernel<sm.num_kernels;this_kernel++){
+				if(!valid_example_kernels[i][k])
+                    isValid=0;
 			}
+            nValid+=isValid;
 		}
 		fprintf(fexamples,"\n"); fflush(fexamples);
 		fprintf(flatent,"\n"); fflush(flatent);

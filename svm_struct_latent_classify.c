@@ -20,7 +20,7 @@
 
 #define KERNEL_INFO_FILE "data/kernel_info.txt"
 #define max(x,y) ( ((x)>(y)) ? (x) : (y))
-#define C 1000
+#define C 100000
 #define J 1
 void read_input_parameters(int argc, char **argv, char *testfile, char *modelfile, char *labelfile, char *latentfile, char *inlatentfile, char *resultfile, STRUCT_LEARN_PARM *sparm);
 
