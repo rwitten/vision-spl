@@ -37,7 +37,7 @@
 #define STOP_PREC 1E-2
 #define UPDATE_BOUND 3
 #define MAX_CURRICULUM_ITER 10
-#define NUM_THREADS 12
+#define NUM_THREADS 24
 #define MAX_OUTER_ITER 20
 
 #define MAX(x,y) ((x) < (y) ? (y) : (x))
@@ -769,9 +769,9 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
   return(primal_obj);
 }
 
-int check_acs_convergence(int *prev_valid_examples, int *valid_examples, long m)
+int check_acs_convergence(int *prev_valid_examples, int *valid_examples, int** prev_valid_example_kernels, int** valid_example_kernels, long m, int kernel_size)
 {
-	long i;
+	long i,k;
 	int converged = 1;
 
 	for (i=0;i<m;i++) {
@@ -779,6 +779,12 @@ int check_acs_convergence(int *prev_valid_examples, int *valid_examples, long m)
 			converged = 0;
 			break;
 		}
+        for ( k=0; k<kernel_size; k++) {
+           if(prev_valid_example_kernels[i][k] == valid_example_kernels[i][k]) {
+                converged=0;
+                break;
+            }
+        }
 	}
 
 	return converged;
@@ -923,7 +929,7 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
     {
         prev_valid_example_kernels[i] = malloc(sm->num_kernels*sizeof(int));
         for(k=0; k<sm->num_kernels;k++)
-            prev_valid_example_kernels[i][k] = 1;
+            prev_valid_example_kernels[i][k] = 0;
     }
 
 	double *best_w = (double *) malloc((sm->sizePsi+1)*sizeof(double));
@@ -981,8 +987,8 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
         assert(sm->num_kernels==5);
 		printf("ACS Iteration %d: number of examples for each kernel = %d %d %d %d %d\n",iter,nValids[0], nValids[1], nValids[2], nValids[3], nValids[4]); fflush(stdout);
 		//RAFI broken
-        converged = check_acs_convergence(prev_valid_examples,valid_examples,m);
-		if(converged && (iter > 5)) {
+        converged = check_acs_convergence(prev_valid_examples,valid_examples,prev_valid_example_kernels, valid_example_kernels,m,sm->sizePsi);
+		if(converged) {
 			break;
 		}
 
@@ -1025,6 +1031,8 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
 		last_relaxed_primal_obj = relaxed_primal_obj;
 		for (i=0;i<m;i++) {
 			prev_valid_examples[i] = valid_examples[i];
+            for(k=0;k<sm->num_kernels;k++)
+                prev_valid_example_kernels[i][k] = valid_example_kernels[i][k];
 		}
 	}
 
@@ -1032,6 +1040,8 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
     free(kernel_info);
 	for (i=0;i<m;i++) {
 		prev_valid_examples[i] = 1;
+        for (k=0; k< sm->num_kernels; k++)
+            prev_valid_example_kernels[i][k] = 1;
 	}
 
 	if (iter) {
@@ -1041,7 +1051,7 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
 	}
 
 	double primal_obj;
-	primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, prev_valid_examples, valid_example_kernels);
+	primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, prev_valid_examples, prev_valid_example_kernels);
 	
 	free(prev_valid_examples);
 	free(best_w);
@@ -1320,7 +1330,7 @@ int main(int argc, char* argv[]) {
             int isValid = 1;
             int this_kernel;
 	        for(this_kernel=0;this_kernel<sm.num_kernels;this_kernel++){
-				if(!valid_example_kernels[i][k])
+				if(!valid_example_kernels[i][this_kernel])
                     isValid=0;
 			}
             nValid+=isValid;
@@ -1335,19 +1345,24 @@ int main(int argc, char* argv[]) {
     last_primal_obj = primal_obj;
     printf("primal objective (THIS IS THE MONEY SHOT): %.4f\n", primal_obj);
 		if (outer_iter) {
-    	printf("decrement: %.4f\n", decrement); fflush(stdout);
+    	printf("decrement (outer iter): %.4f\n", decrement); fflush(stdout);
 		}
 		else {
-			printf("decrement: N/A\n"); fflush(stdout);
+			printf("decrement (outer iter): N/A\n"); fflush(stdout);
 		}
     
     stop_crit = (decrement<C*epsilon);
 		/* additional stopping criteria */
 		if(nValid < m)
+        {
+            printf("NOT STOPPING BECAUSE OF NVALIDS\n");
 			stop_crit = 0;
+        }
 		if(!latent_update)
+        {
+            printf("NOT STOPPING BECAUSE OF LATENT UPDATE\n");
 			stop_crit = 0;
-  
+        } 
     /* impute latent variable using updated weight vector */
 		if(nValid) {
         	for (i=0;i<m;i++) {
