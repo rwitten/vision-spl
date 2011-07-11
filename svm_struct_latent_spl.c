@@ -1325,7 +1325,9 @@ int main(int argc, char* argv[]) {
     primal_obj = alternate_convex_search(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples, valid_example_kernels, spl_weight);
 		int nValid = 0;
 		for (i=0;i<m;i++) {
-			fprintf(fexamples,"%d ",valid_examples[i]);
+            for(k=0;k<sm.num_kernels;k++) {
+			    fprintf(fexamples,"%d ",(2*(ex[i].y.label)-1)*valid_example_kernels[i][k]);
+            }
 			print_latent_var(ex[i].h,flatent);
             int isValid = 1;
             int this_kernel;
