@@ -1320,7 +1320,7 @@ int main(int argc, char* argv[]) {
             int isValid = 1;
             int this_kernel;
 	        for(this_kernel=0;this_kernel<sm.num_kernels;this_kernel++){
-				if(!valid_example_kernels[i][k])
+				if(!valid_example_kernels[i][this_kernel])
                     isValid=0;
 			}
             nValid+=isValid;
@@ -1343,8 +1343,10 @@ int main(int argc, char* argv[]) {
     
     stop_crit = (decrement<C*epsilon);
 		/* additional stopping criteria */
-		if(nValid < m)
+                if(nValid < m) {
+                  printf("YOU BETTER NOT BE DOING CCCP!!!\n");
 			stop_crit = 0;
+                }
 		if(!latent_update)
 			stop_crit = 0;
   

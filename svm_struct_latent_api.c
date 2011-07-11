@@ -136,8 +136,8 @@ SAMPLE read_struct_examples(char *file, STRUCTMODEL * sm, STRUCT_LEARN_PARM *spa
     }
 
     /*TEMPORARY - FOR DEBUGGING*/
-    sample.examples[i].x.bbox_width *= 1.5;
-    sample.examples[i].x.bbox_height *= 1.5;
+    //sample.examples[i].x.bbox_width *= 1.5;
+    //sample.examples[i].x.bbox_height *= 1.5;
     /*-------------------------*/
 
 
