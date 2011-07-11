@@ -529,7 +529,7 @@ SVECTOR *psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cached_imag
     int start_ind = 1;
     for (k = 0; k < sm->num_kernels; ++k) {
       if (valid_kernels[k]) { 
-        fill_max_pool(x, h, k, cached_images, words, start_ind - 1, &num_words, sm);
+        fill_max_pool(x, h, k, cached_images, words, start_ind, &num_words, sm);
       }
       start_ind += sm->kernel_sizes[k];
     }
