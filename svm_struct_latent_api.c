@@ -27,7 +27,7 @@
 #define BASE_DIR "/afs/cs.stanford.edu/u/rwitten/scratch/temp/spm/data/"
 #define CONST_FILENAME_PART "_spquantized_1000_"
 #define CONST_FILENAME_SUFFIX ".mat"
-#define EXAMPLE_COST_POS_NEG_RATIO 2.0
+#define EXAMPLE_COST_POS_NEG_RATIO 1.0
 
 int pad_cmp(const void * a, const void * b) {
   POINT_AND_DESCRIPTOR * pad_a = (POINT_AND_DESCRIPTOR *)a;
@@ -134,6 +134,12 @@ SAMPLE read_struct_examples(char *file, STRUCTMODEL * sm, STRUCT_LEARN_PARM *spa
       sample.examples[i].x.bbox_width = sm->bbox_width;
       sample.examples[i].x.bbox_height = sm->bbox_height;
     }
+
+    /*TEMPORARY - FOR DEBUGGING*/
+    sample.examples[i].x.bbox_width = width - 1;
+    sample.examples[i].x.bbox_height = height - 1;
+    /*-------------------------*/
+
 
     assert(label >= 0 && label < sparm->n_classes);
     sample.examples[i].y.label = label;
@@ -622,6 +628,8 @@ double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_
 	}
 
         free(valid_kernels);
+
+    //printf("%d %d\n",h->position_x,h->position_y);
         
 	return max_score;
 }
@@ -928,7 +936,7 @@ void print_latent_var(LATENT_VAR h, FILE *flatent)
 
 void read_latent_var(LATENT_VAR *h, FILE *finlatent)
 {
-    fprintf(finlatent,"%d%d",&h->position_x,&h->position_y);
+    fscanf(finlatent,"%d%d",&h->position_x,&h->position_y);
 }
 
 void print_label(LABEL l, FILE	*flabel)

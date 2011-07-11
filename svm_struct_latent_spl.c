@@ -38,7 +38,7 @@
 #define UPDATE_BOUND 3
 #define MAX_CURRICULUM_ITER 10
 
-#define MAX_OUTER_ITER 400
+#define MAX_OUTER_ITER 20
 
 #define MAX(x,y) ((x) < (y) ? (y) : (x))
 #define MIN(x,y) ((x) > (y) ? (y) : (x))
@@ -105,6 +105,65 @@ void find_most_violated_constraint(EXAMPLE *ex, LABEL *ybar, LATENT_VAR *hbar, I
     exit(1);
   }
 }
+
+double print_all_scores(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, double C, int *valid_examples, int ** valid_example_kernels) {
+
+  long i, j;
+  SVECTOR *f, *fy, *fybar, *lhs;
+  LABEL       ybar;
+  LATENT_VAR hbar;
+  double lossval, margin;
+  double *new_constraint;
+	double obj = 0.0;
+
+  /* find cutting plane */
+  lhs = NULL;
+  margin = 0;
+  for (i=0;i<m;i++) {
+	if(!valid_examples[i])
+		continue;
+    find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, valid_example_kernels[i], sm, sparm);
+    /* get difference vector */
+    fy = copy_svector(fycache[i]);
+    zero_svector_parts(valid_example_kernels[i], fy,sm);
+    fybar = psi(ex[i].x,ybar,hbar,cached_images,valid_example_kernels[i],sm,sparm);
+    lossval = loss(ex[i].y,ybar,hbar,sparm);
+    printf("%f\n",lossval+sprod_ns(sm->w,fybar)-sprod_ns(sm->w,fy));
+
+    /* scale difference vector */
+    for (f=fy;f;f=f->next) {
+      //f->factor*=1.0/m;
+      f->factor*=ex[i].x.example_cost/m;
+    }
+    for (f=fybar;f;f=f->next) {
+      //f->factor*=-1.0/m;
+      f->factor*=-ex[i].x.example_cost/m;
+    }
+    /* add ybar to constraint */
+    append_svector_list(fy,lhs);
+    append_svector_list(fybar,fy);
+    lhs = fybar;
+    //margin+=lossval/m;
+		margin += lossval*ex[i].x.example_cost/m;
+  }
+
+  /* compact the linear representation */
+  new_constraint = add_list_nn(lhs, sm->sizePsi);
+  free_svector(lhs);
+
+	obj = margin;
+	for(i = 1; i < sm->sizePsi+1; i++)
+		obj -= new_constraint[i]*sm->w[i];
+	if(obj < 0.0)
+		obj = 0.0;
+	obj *= C;
+	for(i = 1; i < sm->sizePsi+1; i++)
+		obj += 0.5*sm->w[i]*sm->w[i];
+  free(new_constraint);
+
+	return obj;
+}
+
 
 double current_obj_val(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, double C, int *valid_examples, int ** valid_example_kernels) {
 
@@ -242,7 +301,8 @@ void find_most_violated_constraint_parallel(int m,EXAMPLE* ex_list, LABEL* ybar_
     while(more_work_to_do)
     {
 //        sleep(1);
-        usleep(1000); //sleep for a mspthread_mutex_lock(&completed_lock);
+        usleep(1000); //sleep for a ms
+        pthread_mutex_lock(&completed_lock);
         int num_completed = completed_tasks;
  //       printf("num completed%d\n", num_completed);
         pthread_mutex_unlock(&completed_lock);
@@ -1289,8 +1349,6 @@ int main(int argc, char* argv[]) {
     	    }
 			latent_update++;
 		}
-        primal_obj = current_obj_val(ex, fycache, m, cached_images, &sm, &sparm, C, allon_examples, allon_example_kernels);
-        printf("primal object (AFTER IMPUTATION): %f\n", primal_obj);
 
     /* re-compute feature vector cache */
     for (i=0;i<m;i++) {
@@ -1301,6 +1359,8 @@ int main(int argc, char* argv[]) {
       fy = diff;
       fycache[i] = fy;
     }
+        primal_obj = current_obj_val(ex, fycache, m, cached_images, &sm, &sparm, C, allon_examples, allon_example_kernels);
+        printf("primal object (AFTER IMPUTATION): %f\n", primal_obj);
 		sprintf(itermodelfile,"%s.%04d",modelfile,outer_iter);
 		write_struct_model(itermodelfile, &sm, &sparm);
 
