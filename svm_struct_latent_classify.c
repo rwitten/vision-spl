@@ -92,6 +92,7 @@ int main(int argc, char* argv[]) {
         read_latent_var(&h,finlatent);
         //printf("%d %d\n",h.position_x,h.position_y);
     }
+	printf("%f\n",sparm.C);
     double score = classify_struct_example(testsample.examples[i].x,&y,&h,cached_images,&model,&sparm,impute);
     l = loss(testsample.examples[i].y,y,h,&sparm);
     if (l<.1) correct++;
@@ -140,7 +141,7 @@ int main(int argc, char* argv[]) {
   double w_cost = regularizaton_cost(model.w, model.sizePsi);
   avghingeloss =  avghingeloss/testsample.n;
   printf("\n");
-  printf("Objective Value %d %f\n\n\n", sparm.C, (sparm.C * avghingeloss) + w_cost);
+  printf("Objective Value %f %f\n\n\n", sparm.C, (sparm.C * avghingeloss) + w_cost);
   printf("Average hinge loss on dataset: %.4f\n", avghingeloss);
   printf("Zero/one error on test set: %.4f\n", 1.0 - ((float) correct)/testsample.n);
 
