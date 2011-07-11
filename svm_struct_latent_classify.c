@@ -20,8 +20,8 @@
 
 #define KERNEL_INFO_FILE "data/kernel_info.txt"
 #define max(x,y) ( ((x)>(y)) ? (x) : (y))
-#define C 1000
-#define J 1
+
+
 void read_input_parameters(int argc, char **argv, char *testfile, char *modelfile, char *labelfile, char *latentfile, char *inlatentfile, char *resultfile, STRUCT_LEARN_PARM *sparm);
 
 double regularizaton_cost(double* w, long num_entries)
@@ -60,6 +60,7 @@ int main(int argc, char* argv[]) {
 
   /* read input parameters */
   read_input_parameters(argc,argv,testfile,modelfile,labelfile,latentfile,inlatentfile,resultfile,&sparm);
+	printf("%f\n",sparm.C);
 	flabel = fopen(labelfile,"w");
 	flatent = fopen(latentfile,"w");
     if(inlatentfile[0]!='\0')
@@ -125,7 +126,7 @@ int main(int argc, char* argv[]) {
     printf("hinge loss %f\n", hinge_l);*/
 
     if(testsample.examples[i].y.label)
-        hinge_l *= J;
+        hinge_l *= sparm.pos_neg_cost_ratio;
     avghingeloss += hinge_l;
 
     free_label(y);
@@ -139,7 +140,7 @@ int main(int argc, char* argv[]) {
   double w_cost = regularizaton_cost(model.w, model.sizePsi);
   avghingeloss =  avghingeloss/testsample.n;
   printf("\n");
-  printf("Objective Value %d %f\n\n\n", C, (C * avghingeloss) + w_cost);
+  printf("Objective Value %d %f\n\n\n", sparm.C, (sparm.C * avghingeloss) + w_cost);
   printf("Average hinge loss on dataset: %.4f\n", avghingeloss);
   printf("Zero/one error on test set: %.4f\n", 1.0 - ((float) correct)/testsample.n);
 
@@ -195,5 +196,4 @@ void read_input_parameters(int argc, char **argv, char *testfile, char *modelfil
         inlatentfile[0] = '\0';
 
   parse_struct_parameters(sparm);
-
 }

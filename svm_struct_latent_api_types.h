@@ -107,6 +107,7 @@ typedef struct struct_learn_parm {
 				  accumulate before recomputing the QP
 				  solution */
   double C;                    /* trade-off between margin and loss */
+  double pos_neg_cost_ratio;
   char   custom_argv[20][1000]; /* string set with the -u command line option */
   int    custom_argc;          /* number of -u command line options */
   int    slack_norm;           /* norm to use in objective function
