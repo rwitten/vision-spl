@@ -1491,6 +1491,7 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
   sm->bbox_height = 50;
   sm->bbox_step_x = 10;
   sm->bbox_step_y = 10;
+  struct_parm->pos_neg_cost_ratio = 1.0;
   learn_parm->maxiter=20000;
   learn_parm->svm_maxqpsize=100;
   learn_parm->svm_c=100.0;

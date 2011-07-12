@@ -27,7 +27,6 @@
 #define BASE_DIR "/afs/cs.stanford.edu/u/rwitten/scratch/temp/spm/data/"
 #define CONST_FILENAME_PART "_spquantized_1000_"
 #define CONST_FILENAME_SUFFIX ".mat"
-#define EXAMPLE_COST_POS_NEG_RATIO 1.0
 
 int pad_cmp(const void * a, const void * b) {
   POINT_AND_DESCRIPTOR * pad_a = (POINT_AND_DESCRIPTOR *)a;
@@ -146,7 +145,7 @@ SAMPLE read_struct_examples(char *file, STRUCTMODEL * sm, STRUCT_LEARN_PARM *spa
     sample.examples[i].x.width = get_num_bbox_positions(width, sample.examples[i].x.bbox_width, sm->bbox_step_x);
     sample.examples[i].x.height = get_num_bbox_positions(height, sample.examples[i].x.bbox_height, sm->bbox_step_y);
     sample.examples[i].x.example_id = i;
-    sample.examples[i].x.example_cost = (label ? EXAMPLE_COST_POS_NEG_RATIO : 1.0);
+    sample.examples[i].x.example_cost = (label ? sparm->pos_neg_cost_ratio : 1.0);
     sample.examples[i].x.descriptor_top_left_xs = calloc(sm->num_kernels, sizeof(int));
     sample.examples[i].x.descriptor_top_left_ys = calloc(sm->num_kernels, sizeof(int));
     sample.examples[i].x.descriptor_num_acrosses = calloc(sm->num_kernels, sizeof(int));
@@ -904,11 +903,15 @@ void parse_struct_parameters(STRUCT_LEARN_PARM *sparm) {
   
   /* set default */
   sparm->rng_seed = 0;
-  sparm->n_classes = 6;
+  sparm->n_classes = 2;
+  sparm->pos_neg_cost_ratio = 1.0;
+  sparm->C = 10000;
   
   for (i=0;(i<sparm->custom_argc)&&((sparm->custom_argv[i])[0]=='-');i++) {
     switch ((sparm->custom_argv[i])[2]) {
       /* your code here */
+    case 'j' : i++; sparm->pos_neg_cost_ratio = atof(sparm->custom_argv[i]); break;
+    case 'c' : i++; sparm->C = atof(sparm->custom_argv[i]); break;
       case 's': i++; sparm->rng_seed = atoi(sparm->custom_argv[i]); break;
       case 'n': i++; sparm->n_classes = atoi(sparm->custom_argv[i]); break;
       case 't': i++; sparm->margin_type = atoi(sparm->custom_argv[i]); break;
