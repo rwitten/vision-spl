@@ -1483,7 +1483,6 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
     case 'n': i++; learn_parm->maxiter=atol(argv[i]); break;
     case 'p': i++; learn_parm->remove_inconsistent=atol(argv[i]); break; 
     case 'z': i++; struct_parm->multi_kernel_spl = atol(argv[i]); break;
-    case 'j' : i++; struct_parm->pos_neg_cost_ratio = atof(argv[i]); break;
 		case 'k': i++; *init_spl_weight = atof(argv[i]); break;
 		case 'm': i++; *spl_factor = atof(argv[i]); break;
 		case 'o': i++; struct_parm->optimizer_type = atoi(argv[i]); break;
