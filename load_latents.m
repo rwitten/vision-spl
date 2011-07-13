@@ -4,7 +4,6 @@ function [examples_at_step] = load_latents(filename, pos_or_neg) %pos_or_neg = 0
    
     num_kernels=5;
     spl= load(filename);
-
     if abs(pos_or_neg)<1e-4,
         spl = abs(spl);
     elseif pos_or_neg >.5,
