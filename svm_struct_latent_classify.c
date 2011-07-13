@@ -48,6 +48,7 @@ int main(int argc, char* argv[]) {
 	FILE	*flabel;
 	FILE	*flatent;
     FILE    *finlatent;
+    FILE *fscore;
 
   STRUCTMODEL model;
   STRUCT_LEARN_PARM sparm;
@@ -60,7 +61,19 @@ int main(int argc, char* argv[]) {
 
   /* read input parameters */
   read_input_parameters(argc,argv,testfile,modelfile,labelfile,latentfile,inlatentfile,resultfile,&sparm);
-	printf("%f\n",sparm.C);
+
+    char fscorefile[1024];
+    strcpy(fscorefile, labelfile);
+    char * dot_in_name = strchr(fscorefile, (int)('.'));
+    dot_in_name++;
+    dot_in_name = strchr(dot_in_name, (int)('.'));
+    dot_in_name++;
+    *dot_in_name = '\0';
+    strcat(fscorefile, "scores");
+    fscore = fopen(fscorefile,"w");
+
+
+    //printf("%f\n",sparm.C);
 	flabel = fopen(labelfile,"w");
 	flatent = fopen(latentfile,"w");
     if(inlatentfile[0]!='\0')
@@ -92,16 +105,25 @@ int main(int argc, char* argv[]) {
         read_latent_var(&h,finlatent);
         //printf("%d %d\n",h.position_x,h.position_y);
     }
-	printf("%f\n",sparm.C);
-    double score = classify_struct_example(testsample.examples[i].x,&y,&h,cached_images,&model,&sparm,impute);
+    //printf("%f\n",sparm.C);
+        double max_score_positive;
+        double score = classify_struct_example(testsample.examples[i].x,&y,&h,cached_images,&model,&sparm,impute,&max_score_positive);
     l = loss(testsample.examples[i].y,y,h,&sparm);
     if (l<.1) correct++;
 
 		print_label(y,flabel);
 		fprintf(flabel,"\n"); fflush(flabel);
 
-		print_latent_var(h,flatent);
+		print_latent_var(testsample.examples[i].x, h,flatent);
 		fprintf(flatent,"\n"); fflush(flatent);
+
+                char * img_num_str = testsample.examples[i].x.image_path;
+                img_num_str = strchr(img_num_str, (int)('/'));
+                img_num_str++;
+                img_num_str = strchr(img_num_str, (int)('/'));
+                img_num_str++;
+                fprintf(fscore, "%s %f %d\n", img_num_str, max_score_positive, testsample.examples[i].y.label); fflush(fscore);
+
       LABEL ybar;
       LATENT_VAR hbar;
       SVECTOR *fy, *fybar;
@@ -148,6 +170,8 @@ int main(int argc, char* argv[]) {
   FILE *fresult = fopen(resultfile,"w");
   fprintf(fresult,"%.4f\n",1.0 - ((float) correct)/testsample.n);
   fclose(fresult);
+
+  fclose(fscore);
 
   free_cached_images(cached_images, &model);
   free_struct_sample(testsample);

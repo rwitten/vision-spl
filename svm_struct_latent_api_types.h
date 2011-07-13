@@ -95,6 +95,7 @@ typedef struct structmodel {
   int * descriptor_spacing_ys;
   int bbox_width;
   int bbox_height;
+  double bbox_scale;
   int bbox_step_x;
   int bbox_step_y;
 } STRUCTMODEL;

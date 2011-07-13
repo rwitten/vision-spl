@@ -133,12 +133,15 @@ SAMPLE read_struct_examples(char *file, STRUCTMODEL * sm, STRUCT_LEARN_PARM *spa
       sample.examples[i].x.bbox_width = sm->bbox_width;
       sample.examples[i].x.bbox_height = sm->bbox_height;
     }
-
-    /*TEMPORARY - FOR DEBUGGING*/
-    //sample.examples[i].x.bbox_width *= 1.5;
-    //sample.examples[i].x.bbox_height *= 1.5;
-    /*-------------------------*/
-
+    
+    if (sm->bbox_scale >= 0.0) {
+      sample.examples[i].x.bbox_width = (int)(sm->bbox_scale * sample.examples[i].x.bbox_width);
+      sample.examples[i].x.bbox_height = (int)(sm->bbox_scale * sample.examples[i].x.bbox_height);
+      printf("bbox_width = %d, bbox_height = %d\n", sample.examples[i].x.bbox_width, sample.examples[i].x.bbox_height);
+    } else {
+      sample.examples[i].x.bbox_width = width - 1;
+      sample.examples[i].x.bbox_height = height - 1;
+    }
 
     assert(label >= 0 && label < sparm->n_classes);
     sample.examples[i].y.label = label;
@@ -157,6 +160,7 @@ SAMPLE read_struct_examples(char *file, STRUCTMODEL * sm, STRUCT_LEARN_PARM *spa
 }
 
 int get_num_bbox_positions(int image_length, int bbox_length, int bbox_step_length) {
+  if (bbox_length >= image_length) return 1;
   return (int)ceil((1.0 * image_length - 1.0 * bbox_length) / (1.0 * bbox_step_length));
 }
 
@@ -582,7 +586,7 @@ double compute_w_T_psi(PATTERN *x, int position_x, int position_y, int class, IM
 }
 
 
-double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int impute) {
+double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int impute, double * max_score_positive) {
 /*
   Makes prediction with input pattern x with weight vector in sm->w,
   i.e., computing argmax_{(y,h)} <w,psi(x,y,h)>. 
@@ -590,6 +594,7 @@ double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_
   pointers *y and *h. 
 */
   
+//  printf("sparm->n_classes = %d, x.width = %d, x.height = %d\n", sparm->n_classes, x.width, x.height);
    int i, l;
 	int width = x.width;
 	int height = x.height;
@@ -604,6 +609,7 @@ double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_
         }
 
 	max_score = -DBL_MAX;
+        *max_score_positive = -DBL_MAX;
 	for(cur_position_y = 0; cur_position_y < height; cur_position_y++) {
 		for(cur_position_x = 0; cur_position_x < width; cur_position_x++) {
 			for(cur_class = 0; cur_class < sparm->n_classes; cur_class++) {
@@ -618,6 +624,10 @@ double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_
 					h->position_x = cur_position_x;
 					h->position_y = cur_position_y;
 				}
+                                //printf("score = %f\n", score);
+                                if (cur_class > 0 && score > *max_score_positive) {
+                                  *max_score_positive = score;
+                                }
 			}
             if(!impute)
                 break;
@@ -626,10 +636,14 @@ double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_
             break;
 	}
 
+        
+
         free(valid_kernels);
 
     //printf("%d %d\n",h->position_x,h->position_y);
         
+        //printf("max_score_positive = %f\n", *max_score_positive);
+
 	return max_score;
 }
 
@@ -802,6 +816,7 @@ void write_struct_model(char *file, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm) {
   
   fprintf(modelfl, "%d\n", sm->bbox_height);
   fprintf(modelfl, "%d\n", sm->bbox_width);
+  fprintf(modelfl, "%f\n", sm->bbox_scale);
   fprintf(modelfl, "%d\n", sm->bbox_step_y);
   fprintf(modelfl, "%d\n", sm->bbox_step_x);
 
@@ -830,12 +845,12 @@ void read_struct_model(char *model_file, STRUCTMODEL * sm) {
   }
   
   sm->w = (double*)calloc(sm->sizePsi + 1, sizeof(double));
-  
+  char str[1024];
   fscanf(modelfl, "%d\n", &(sm->bbox_height));
   fscanf(modelfl, "%d\n", &(sm->bbox_width));
+  fscanf(modelfl, "%lf\n", &(sm->bbox_scale));
   fscanf(modelfl, "%d\n", &(sm->bbox_step_y));
   fscanf(modelfl, "%d\n", &(sm->bbox_step_x));
-
   while (!feof(modelfl)) {
     fscanf(modelfl, "%d:%lf", &fnum, &fweight);
 		sm->w[fnum] = fweight;
@@ -931,9 +946,16 @@ void copy_latent_var(LATENT_VAR lv1, LATENT_VAR *lv2)
 	lv2->position_y = lv1.position_y;
 }
 
-void print_latent_var(LATENT_VAR h, FILE *flatent)
+void print_latent_var(PATTERN x, LATENT_VAR h, FILE *flatent)
 {
-	fprintf(flatent,"%d %d ",h.position_x,h.position_y);
+  char img_num_str[1024];
+  char * img_num_ptr = img_num_str;
+  strcpy(img_num_ptr, x.image_path);
+  img_num_ptr = strchr(img_num_ptr, (int)('/'));
+  img_num_ptr++;
+  img_num_ptr = strchr(img_num_ptr, (int)('/'));
+  img_num_ptr++;
+  fprintf(flatent,"%s %d %d ", img_num_ptr, h.position_x,h.position_y);
 	fflush(flatent);
 }
 
