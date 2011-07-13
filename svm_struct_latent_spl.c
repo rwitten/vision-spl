@@ -937,10 +937,25 @@ void get_init_spl_weight(long m, double C, SVECTOR **fycache, EXAMPLE *ex, IMAGE
   
     printf("Doing an init spl weight %d %f\n", m , C);
     qsort(&slack[pos_count], m-pos_count, sizeof(sortStruct),&compar);
+
 	int half_pos = (int) round(sparm->init_valid_fraction*(pos_count));
+    while(half_pos < pos_count)
+    {
+        if(slack[half_pos].val>.01)
+            break;
+        half_pos++;
+    }
+    
 	*spl_weight_pos = (double)m/C/slack[half_pos].val;
 
 	int half_neg = (int) pos_count+round(sparm->init_valid_fraction*(m-pos_count));
+    while(half_neg < m)
+    {
+        if(slack[half_neg].val>.01)
+            break;
+        half_neg++;
+    }
+
 	*spl_weight_neg = (double)m/C/slack[half_neg].val;
    
 	free(slack);
