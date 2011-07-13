@@ -792,7 +792,7 @@ int check_acs_convergence(int *prev_valid_examples, int *valid_examples, int** p
 
 int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples, int* kernel_choice, double spl_weight_pos, double spl_weight_neg,int* invalidPositives, int* validPositives) {
 	long i, j;
-
+    int pos_count=0;
     if(!sparm->multi_kernel_spl){
         for(i=0; i<sm->num_kernels;i++) {
             kernel_choice[i]=1;   //since we aren't doing multi_kernel learning, all are on no matter what they said. 
@@ -811,13 +811,6 @@ int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPL
 	LABEL ybar;
 	LATENT_VAR hbar;
 	SVECTOR *f, *fy, *fybar;
-	double lossval;
-	double penalty_pos = 1.0/spl_weight_pos;
-	if(penalty_pos < 0.0)
-		penalty_pos = DBL_MAX;
-	double penalty_neg = 1.0/spl_weight_neg;
-	if(penalty_neg < 0.0)
-		penalty_neg = DBL_MAX;
 
 	for (i=0;i<m;i++) {
 	  find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, kernel_choice, sm, sparm);
@@ -844,31 +837,32 @@ int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPL
 				j++;
 			}
 		}
+        if(ex[i].y.label)
+            pos_count++;
 		free_svector(fy);
 		free_svector(fybar);
 	}
 
+    qsort(slack,pos_count,sizeof(sortStruct),&compar);
+    qsort(&slack[pos_count],m-pos_count,sizeof(sortStruct),&compar);
 	int nValid = 0;
-	for (i=0;i<m;i++)
+    
+    int pos_cutoff = (int)round(pos_count*spl_weight_pos);
+    int neg_cutoff = pos_count+(int)round((m-pos_count)*spl_weight_neg);
+
+    *validPositives = pos_cutoff;
+    *invalidPositives = pos_count - pos_cutoff;
+
+    for (i=0; i< pos_cutoff;i++)
     {
-		valid_examples[i] = 0;
+        valid_examples[slack[i].index]=1;
     }
-	for (i=0;i<m;i++) {
-		if( (ex[slack[i].index].y.label && (slack[i].val*C/m < penalty_pos)) ||
-                    ((!ex[slack[i].index].y.label) && (slack[i].val*C/m < penalty_neg))) {
-
-  		    valid_examples[slack[i].index] = 1;
-    		nValid++;
-            if(ex[slack[i].index].y.label)
-            {
-                validPositives[0]=validPositives[0]+1;
-            }
-        }
-        else if(ex[slack[i].index].y.label) {
-            invalidPositives[0]=invalidPositives[0]+1;
-        }
-
-	}
+    for (i=pos_cutoff; i<neg_cutoff;i++)
+    {
+        assert(i<m);
+        valid_examples[slack[i].index]=1;
+    }
+    nValid = pos_cutoff + (neg_cutoff-pos_count);
 
 	free(slack);
 
@@ -879,114 +873,29 @@ int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPL
 /*for original SPL, just set all entries in valid_kernels to 1*/
 /*for multi-kernel SPL, set only the entry of the kernel you're interested in to 1*/
 void get_init_spl_weight(long m, double C, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, double* spl_weight_pos, double* spl_weight_neg) {
-
-	long i, j;
-    int pos_count = 0;
-    int has_seen_neg = 0;
-    for(i=0;i<m;i++)
-    {
-        if(ex[i].y.label==1) pos_count++;
-        if(ex[i].y.label==0) has_seen_neg=1;
-        assert(!(ex[i].y.label==1 && has_seen_neg)); //first positives then negatives.  Or else I crash.
-    }
-
-	sortStruct *slack = (sortStruct *) malloc(m*sizeof(sortStruct));
-    int pos_position = 0;
-    int neg_position = 0;
-	LABEL ybar;
-	LATENT_VAR hbar;
-	SVECTOR *f, *fy, *fybar;
-	double lossval, init_spl_weight_pos,init_spl_weight_neg;
-	int half;
-
-	for (i=0;i<m;i++) {
-	  find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, valid_kernels, sm, sparm);
-		fy = copy_svector(fycache[i]);
-        zero_svector_parts(valid_kernels, fy, sm);
-		fybar = psi(ex[i].x,ybar,hbar,cached_images,valid_kernels,sm,sparm);
-		slack[i].index = i;
-		slack[i].val = loss(ex[i].y,ybar,hbar,sparm);
-		for (f=fy;f;f=f->next) {
-			j = 0;
-			while (1) {
-				if(!f->words[j].wnum)
-					break;
-				slack[i].val -= sm->w[f->words[j].wnum]*f->words[j].weight;
-				j++;
-			}
-		}
-		for (f=fybar;f;f=f->next) {
-			j = 0;
-			while (1) {
-				if(!f->words[j].wnum)
-					break;
-				slack[i].val += sm->w[f->words[j].wnum]*f->words[j].weight;
-				j++;
-			}
-		}
-//printf("Slack %d: %f\n",i,slack[i].val);
-		free_svector(fy);
-		free_svector(fybar);
-	}
-
-    
-    for(i=0;i<m;i++)
-         printf("for the %dth example slack is %f\n", i, slack[i].val); 
-
-	qsort(slack,pos_count,sizeof(sortStruct),&compar);
-  
-    printf("Doing an init spl weight %d %f\n", m , C);
-    qsort(&slack[pos_count], m-pos_count, sizeof(sortStruct),&compar);
-
-	int half_pos = (int) round(sparm->init_valid_fraction*(pos_count));
-    while(half_pos < pos_count)
-    {
-        if(slack[half_pos].val>.01)
-            break;
-        half_pos++;
-    }
-    
-	*spl_weight_pos = (double)m/C/slack[half_pos].val;
-
-	int half_neg = (int) pos_count+round(sparm->init_valid_fraction*(m-pos_count));
-    while(half_neg < m)
-    {
-        if(slack[half_neg].val>.01)
-            break;
-        half_neg++;
-    }
-
-	*spl_weight_neg = (double)m/C/slack[half_neg].val;
-   
-	free(slack);
-
-	return;
+	spl_weight_pos[0]= sparm->init_valid_fraction;
+    spl_weight_neg[0] = sparm->init_valid_fraction;
+    return;
 }
 
 double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double epsilon, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples, int ** valid_example_kernels, double * spl_weight_pos, double* spl_weight_neg) {
 
-  long i, k, j;
-	int iter = 0, converged;
+    long i, k, j;
 
     int* nValids = calloc(sm->num_kernels,sizeof(int));
     int* posInvalids = calloc(sm->num_kernels,sizeof(int));
     int* posValids = calloc(sm->num_kernels, sizeof(int));
 
-	double last_relaxed_primal_obj = DBL_MAX, relaxed_primal_obj, decrement;
-
 	int *prev_valid_examples = (int *) malloc(m*sizeof(int));
     int** prev_valid_example_kernels=(int**) malloc(m*sizeof(int*));
     for(i = 0; i<m;i++)
     {
+        prev_valid_examples[i]=1;
         prev_valid_example_kernels[i] = malloc(sm->num_kernels*sizeof(int));
         for(k=0; k<sm->num_kernels;k++)
-            prev_valid_example_kernels[i][k] = 0;
+            prev_valid_example_kernels[i][k] = 1;
     }
 
-	double *best_w = (double *) malloc((sm->sizePsi+1)*sizeof(double));
-
-	for (i=0;i<sm->sizePsi+1;i++)
-		best_w[i] = w[i];
    
     memset(valid_examples, 0, m * sizeof(int));
     int* this_kernels_examples = (int*) calloc( m, sizeof(int));
@@ -1008,111 +917,27 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
         }
         kernel_info[i]=0;
     }
-    last_relaxed_primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, valid_examples, valid_example_kernels);
-    
-    for (i=0;i<sm->num_kernels;i++) {
-        if(m-nValids[i]>0) {
-            last_relaxed_primal_obj += (double)(posInvalids[i])/((double)spl_weight_pos[i]);
-            last_relaxed_primal_obj += (double)(m - nValids[i] - posInvalids[i])/((double)spl_weight_neg[i]);
-        }
-    }
 
-	for (i=0;i<m;i++) {
-		prev_valid_examples[i] = 0;
-	}
+    for (i=0;i<sm->sizePsi+1;i++)
+            w[i] = 0.0;
 
-	for (iter=0;;iter++) {
-	  memset(valid_examples, 0, m * sizeof(int));
-	  for (i=0;i<sm->num_kernels;i++) {
-	    memset(this_kernels_examples, 0, m * sizeof(int));
-        kernel_info[i]=1;
-        posInvalids[i] = 0;
-        posValids[i] = 0;
-	    nValids[i] = update_valid_examples(w, m, C, fycache, ex, cached_images, sm, sparm, this_kernels_examples,kernel_info, spl_weight_pos[i], spl_weight_neg[i],&posInvalids[i], &posValids[i]);
-        printf("%dth kernel gives us %d valids %d of which are pos and %d of which are neg\n", i, nValids[i], posValids[i], nValids[i]-posValids[i]);
-	    for(j=0; j<m;j++) {
-		  valid_example_kernels[j][i] = this_kernels_examples[j];
-		  if (this_kernels_examples[j]) {
-		    valid_examples[j] = 1;
-		  }
-		}
-        kernel_info[i]=0;
-	  }
-
-
-        //RAFI this is temporary
-        assert(sm->num_kernels==5);
-		printf("ACS Iteration %d: number of examples for each kernel = %d %d %d %d %d\n",iter,nValids[0], nValids[1], nValids[2], nValids[3], nValids[4]); fflush(stdout);
-		//RAFI broken
-        converged = check_acs_convergence(prev_valid_examples,valid_examples,prev_valid_example_kernels, valid_example_kernels,m,sm->sizePsi);
-		if(converged) {
-			break;
-		}
-
-		for (i=0;i<sm->sizePsi+1;i++)
-			w[i] = 0.0;
-
-		if(!sparm->optimizer_type) {
-		  relaxed_primal_obj = cutting_plane_algorithm(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, sm, sparm, valid_examples, valid_example_kernels);
-		} else {
+    if(!sparm->optimizer_type) {
+        cutting_plane_algorithm(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, sm, sparm, valid_examples, valid_example_kernels);
+        } else {
                   assert(0);
                   //relaxed_primal_obj = stochastic_subgradient_descent(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, sm, sparm, valid_examples);
-                }
-        
-        for (i=0;i<sm->num_kernels;i++)
-        {
-            if(m-nValids[i]>0)
-            {
-                relaxed_primal_obj += (double)(posInvalids[i])/((double)spl_weight_pos[i]);
-                relaxed_primal_obj += (double)(m - nValids[i] - posInvalids[i])/((double)spl_weight_neg[i]);
-            }
-        }
-		decrement = last_relaxed_primal_obj-relaxed_primal_obj;
-    printf("relaxed primal objective: %.4f\n", relaxed_primal_obj);
-   	printf("decrement: %.4f\n", decrement); fflush(stdout);
-		/*
-		if (iter) {
-    	printf("decrement: %.4f\n", decrement); fflush(stdout);
-		}
-		else {
-			printf("decrement: N/A\n"); fflush(stdout);
-		}
-		*/
-		if (decrement>=0.0) {
-			for (i=0;i<sm->sizePsi+1;i++) {
-				best_w[i] = w[i];
-			}
-		}
-		if (decrement <= C*epsilon) {
-			break;
-		}
-		last_relaxed_primal_obj = relaxed_primal_obj;
-		for (i=0;i<m;i++) {
-			prev_valid_examples[i] = valid_examples[i];
-            for(k=0;k<sm->num_kernels;k++)
-                prev_valid_example_kernels[i][k] = valid_example_kernels[i][k];
-		}
-	}
+     }
+
+     double primal_obj;
+    primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, prev_valid_examples, prev_valid_example_kernels);
 
     free(this_kernels_examples);
     free(kernel_info);
 	for (i=0;i<m;i++) {
-		prev_valid_examples[i] = 1;
-        for (k=0; k< sm->num_kernels; k++)
-            prev_valid_example_kernels[i][k] = 1;
+        free(prev_valid_example_kernels[i]);
 	}
-
-	if (iter) {
-		for (i=0;i<sm->sizePsi+1;i++) {
-			w[i] = best_w[i];
-		}
-	}
-
-	double primal_obj;
-	primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, prev_valid_examples, prev_valid_example_kernels);
 	
 	free(prev_valid_examples);
-	free(best_w);
     free(posValids);
     free(posInvalids);
 	return(primal_obj);
@@ -1465,8 +1290,11 @@ int main(int argc, char* argv[]) {
 
     outer_iter++;
         for(i=0;i<sm.num_kernels;i++) {
-    		spl_weight_pos[i] /= spl_factor;
-            spl_weight_neg[i] /= spl_factor;
+            printf("!!!!!!!!!!!!!!!!!!! %f\n", spl_factor);
+    		spl_weight_pos[i] += spl_factor;
+            spl_weight_neg[i] += spl_factor;
+            spl_weight_pos[i] = (spl_weight_pos[i]>1) ? 1 : spl_weight_pos[i];
+            spl_weight_neg[i] = (spl_weight_neg[i]>1) ? 1:spl_weight_neg[i];
         }
   } // end outer loop
 	fclose(fexamples);
@@ -1594,8 +1422,6 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
 	if(*init_spl_weight < 0.0)
 		*init_spl_weight = 0.0;
 	/* self-paced learning factor should be greater than 1.0 */
-	if(*spl_factor < 1.0)
-		*spl_factor = 1.1;
 
   parse_struct_parameters(struct_parm);
 }

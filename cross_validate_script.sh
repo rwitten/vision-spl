@@ -1,6 +1,6 @@
 commands[1]=' --j 6 -l 1.5 '
-commands[2]=' --j 6 -l 1.5 -m 1.3 -k 50 '
-commands[3]=' --j 6 -l 1.5 -m 1.3 -k 50 -z 1 '
+commands[2]=' --j 6 -l 1.5 -m .1 -k 50 '
+commands[3]=' --j 6 -l 1.5 -m .1 -k 50 -z 1 '
 
 names[1]='cccp'
 names[2]='spl'
@@ -13,7 +13,7 @@ for fold in 1
 do
     for randomness in 1
     do
-        for algorithm in 1 2 3
+        for algorithm in  2 3 1
         do 
             command_starttimestamp="date > ./output/${names[$algorithm]}5000_${fold}_$randomness.starttime"
             command_endtimestamp="date > ./output/${names[$algorithm]}5000_${fold}_$randomness.endtime" 
