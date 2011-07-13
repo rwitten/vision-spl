@@ -624,7 +624,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 
 		int million = 1000000;
 		int microseconds = million * (finish_time.tv_sec - start_time.tv_sec) + (finish_time.tv_usec - start_time.tv_usec);
-		//printf("Cutting plane took %f milliseconds.\n", microseconds / 1000.0);
+		printf("Cutting plane took %f milliseconds.\n", microseconds / 1000.0);
 		start_time.tv_sec = finish_time.tv_sec;
 		start_time.tv_usec = finish_time.tv_usec;
 
@@ -791,7 +791,6 @@ int check_acs_convergence(int *prev_valid_examples, int *valid_examples, int** p
 }
 
 int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples, int* kernel_choice, double spl_weight_pos, double spl_weight_neg,int* invalidPositives, int* validPositives) {
-
 	long i, j;
 
     if(!sparm->multi_kernel_spl){
@@ -848,23 +847,25 @@ int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPL
 		free_svector(fy);
 		free_svector(fybar);
 	}
-//	qsort(slack,m,sizeof(sortStruct),&compar);
 
 	int nValid = 0;
 	for (i=0;i<m;i++)
+    {
 		valid_examples[i] = 0;
+    }
 	for (i=0;i<m;i++) {
 		if( (ex[slack[i].index].y.label && (slack[i].val*C/m < penalty_pos)) ||
                     ((!ex[slack[i].index].y.label) && (slack[i].val*C/m < penalty_neg))) {
-		    valid_examples[slack[i].index] = 1;
+
+  		    valid_examples[slack[i].index] = 1;
     		nValid++;
             if(ex[slack[i].index].y.label)
             {
-                *validPositives=*validPositives+1;
+                validPositives[0]=validPositives[0]+1;
             }
         }
         else if(ex[slack[i].index].y.label) {
-            *invalidPositives=*invalidPositives+1;
+            invalidPositives[0]=invalidPositives[0]+1;
         }
 
 	}
@@ -929,9 +930,12 @@ void get_init_spl_weight(long m, double C, SVECTOR **fycache, EXAMPLE *ex, IMAGE
 	}
 
     
+    for(i=0;i<m;i++)
+         printf("for the %dth example slack is %f\n", i, slack[i].val); 
 
 	qsort(slack,pos_count,sizeof(sortStruct),&compar);
-    
+  
+    printf("Doing an init spl weight %d %f\n", m , C);
     qsort(&slack[pos_count], m-pos_count, sizeof(sortStruct),&compar);
 	int half_pos = (int) round(sparm->init_valid_fraction*(pos_count));
 	*spl_weight_pos = (double)m/C/slack[half_pos].val;
@@ -1005,9 +1009,12 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
 	for (iter=0;;iter++) {
 	  memset(valid_examples, 0, m * sizeof(int));
 	  for (i=0;i<sm->num_kernels;i++) {
-        kernel_info[i]=1;
 	    memset(this_kernels_examples, 0, m * sizeof(int));
+        kernel_info[i]=1;
+        posInvalids[i] = 0;
+        posValids[i] = 0;
 	    nValids[i] = update_valid_examples(w, m, C, fycache, ex, cached_images, sm, sparm, this_kernels_examples,kernel_info, spl_weight_pos[i], spl_weight_neg[i],&posInvalids[i], &posValids[i]);
+        printf("%dth kernel gives us %d valids %d of which are pos and %d of which are neg\n", i, nValids[i], posValids[i], nValids[i]-posValids[i]);
 	    for(j=0; j<m;j++) {
 		  valid_example_kernels[j][i] = this_kernels_examples[j];
 		  if (this_kernels_examples[j]) {
