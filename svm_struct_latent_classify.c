@@ -22,7 +22,7 @@
 #define max(x,y) ( ((x)>(y)) ? (x) : (y))
 
 
-void read_input_parameters(int argc, char **argv, char *testfile, char *modelfile, char *labelfile, char *latentfile, char *inlatentfile, char *resultfile, STRUCT_LEARN_PARM *sparm);
+void read_input_parameters(int argc, char **argv, char *testfile, char *modelfile, char *labelfile, char *latentfile, char *inlatentfile, char *scorefile, STRUCT_LEARN_PARM *sparm);
 
 double regularizaton_cost(double* w, long num_entries)
 {
@@ -43,7 +43,7 @@ int main(int argc, char* argv[]) {
   char modelfile[1024];
 	char labelfile[1024];
 	char latentfile[1024];
-	char resultfile[1024];
+	char scorefile[1024];
     char inlatentfile[1024];
 	FILE	*flabel;
 	FILE	*flatent;
@@ -60,25 +60,12 @@ int main(int argc, char* argv[]) {
   LATENT_VAR h;
 
   /* read input parameters */
-  read_input_parameters(argc,argv,testfile,modelfile,labelfile,latentfile,inlatentfile,resultfile,&sparm);
-
-    char fscorefile[1024];
-    strcpy(fscorefile, labelfile);
-    char * dot_in_name = strchr(fscorefile, (int)('.'));
-    dot_in_name++;
-    dot_in_name = strchr(dot_in_name, (int)('.'));
-    dot_in_name++;
-    *dot_in_name = '\0';
-    strcat(fscorefile, "scores");
-    fscore = fopen(fscorefile,"w");
-
+  read_input_parameters(argc,argv,testfile,modelfile,labelfile,latentfile,inlatentfile,scorefile,&sparm);
 
     //printf("%f\n",sparm.C);
 	flabel = fopen(labelfile,"w");
 	flatent = fopen(latentfile,"w");
-    if(inlatentfile[0]!='\0')
-        finlatent = fopen(inlatentfile,"r"); 
-    else
+        fscore = fopen(scorefile, "w");
         finlatent = NULL;
 
   init_struct_model(get_sample_size(testfile), KERNEL_INFO_FILE, &model);
@@ -122,7 +109,7 @@ int main(int argc, char* argv[]) {
                 img_num_str++;
                 img_num_str = strchr(img_num_str, (int)('/'));
                 img_num_str++;
-                fprintf(fscore, "%s %f %d\n", img_num_str, max_score_positive, testsample.examples[i].y.label); fflush(fscore);
+                fprintf(fscore, "%s %f\n", img_num_str, max_score_positive); fflush(fscore);
 
       LABEL ybar;
       LATENT_VAR hbar;
@@ -167,10 +154,6 @@ int main(int argc, char* argv[]) {
   printf("Average hinge loss on dataset: %.4f\n", avghingeloss);
   printf("Zero/one error on test set: %.4f\n", 1.0 - ((float) correct)/testsample.n);
 
-  FILE *fresult = fopen(resultfile,"w");
-  fprintf(fresult,"%.4f\n",1.0 - ((float) correct)/testsample.n);
-  fclose(fresult);
-
   fclose(fscore);
 
   free_cached_images(cached_images, &model);
@@ -182,7 +165,7 @@ int main(int argc, char* argv[]) {
 }
 
 
-void read_input_parameters(int argc, char **argv, char *testfile, char *modelfile, char *labelfile, char *latentfile, char *inlatentfile, char *resultfile, STRUCT_LEARN_PARM *sparm) {
+void read_input_parameters(int argc, char **argv, char *testfile, char *modelfile, char *labelfile, char *latentfile, char *inlatentfile, char *scorefile, STRUCT_LEARN_PARM *sparm) {
 
   long i;
   
@@ -190,7 +173,7 @@ void read_input_parameters(int argc, char **argv, char *testfile, char *modelfil
   strcpy(modelfile, "lssvm_model");
   strcpy(labelfile, "lssvm_label");
   strcpy(latentfile, "lssvm_latent");
-  strcpy(resultfile, "lssvm_result");
+  strcpy(scorefile, "lssvm_score");
   strcpy(inlatentfile,"lssvm_inlatent");
   sparm->custom_argc = 0;
 
@@ -214,11 +197,11 @@ void read_input_parameters(int argc, char **argv, char *testfile, char *modelfil
 	if(i+3<argc)
 		strcpy(latentfile,argv[i+3]);
         if(i+4<argc)
-	        strcpy(resultfile,argv[i+4]);
-    if(i+5<argc)
-        strcpy(inlatentfile,argv[i+5]);
-    else
-        inlatentfile[0] = '\0';
+	        strcpy(scorefile,argv[i+4]);
+        //if(i+5<argc)
+      //strcpy(inlatentfile,argv[i+5]);
+        //else
+   inlatentfile[0] = '\0';
 
   parse_struct_parameters(sparm);
 }
