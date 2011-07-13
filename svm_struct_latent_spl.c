@@ -1145,7 +1145,8 @@ double compute_current_loss(SAMPLE val, IMAGE_KERNEL_CACHE ** cached_images, STR
 	double store;
 	for(i = 0; i < val.n; i++)
 	{
-	        classify_struct_example(val.examples[i].x,&y,&h,cached_images,sm,sparm,1);
+          double max_positive_score;
+          classify_struct_example(val.examples[i].x,&y,&h,cached_images,sm,sparm,1,&max_positive_score);
 		store = loss(val.examples[i].y,y,h,sparm);
 		cur_loss += store;
 	}
@@ -1376,7 +1377,7 @@ int main(int argc, char* argv[]) {
             for(k=0;k<sm.num_kernels;k++) {
 			    fprintf(fexamples,"%d ",(2*(ex[i].y.label)-1)*valid_example_kernels[i][k]);
             }
-			print_latent_var(ex[i].h,flatent);
+            print_latent_var(ex[i].x, ex[i].h,flatent);
             int isValid = 1;
             int this_kernel;
 	        for(this_kernel=0;this_kernel<sm.num_kernels;this_kernel++){
@@ -1496,6 +1497,7 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
   /* set default */
   sm->bbox_width = 50;
   sm->bbox_height = 50;
+  sm->bbox_scale = 1.0;
   sm->bbox_step_x = 10;
   sm->bbox_step_y = 10;
   struct_parm->pos_neg_cost_ratio = 1.0;
@@ -1532,6 +1534,7 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
     case 'n': i++; learn_parm->maxiter=atol(argv[i]); break;
     case 'p': i++; learn_parm->remove_inconsistent=atol(argv[i]); break; 
     case 'z': i++; struct_parm->multi_kernel_spl = atol(argv[i]); break;
+    case 'l': i++; sm->bbox_scale = atof(argv[i]); break;
 		case 'k': i++; *init_spl_weight = atof(argv[i]); break;
 		case 'm': i++; *spl_factor = atof(argv[i]); break;
 		case 'o': i++; struct_parm->optimizer_type = atoi(argv[i]); break;
