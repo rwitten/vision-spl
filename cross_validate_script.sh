@@ -9,12 +9,16 @@ names[3]='splplus'
 base_dir='/afs/cs.stanford.edu/u/rwitten/projects/multi_kernel_spl'
 cd $base_dir
 
-for fold in 1
+for fold in 1 2 3 4
 do
-    for randomness in 1
+    for randomness in  1 2 3
     do
-        for algorithm in  2 3 1
-        do 
+        for algorithm in  1 2 3 
+        do
+			if [  -f ./output/${names[$algorithm]}5000_${fold}_$randomness.model ]; then
+				echo "Skipping " ./output/${names[$algorithm]}5000_${fold}_$randomness.model
+				continue
+		    fi
             command_starttimestamp="date > ./output/${names[$algorithm]}5000_${fold}_$randomness.starttime"
             command_endtimestamp="date > ./output/${names[$algorithm]}5000_${fold}_$randomness.endtime" 
             command_train="./svm_bbox_learn --s $randomness -c 5000 -o 0 --n 2 ${commands[$algorithm]} ./data/train.${fold}.txt ./output/${names[$algorithm]}5000_${fold}_$randomness.model ./output/${names[$algorithm]}5000_${fold}_$randomness > ./output/${names[$algorithm]}5000_${fold}_$randomness.train_output"
