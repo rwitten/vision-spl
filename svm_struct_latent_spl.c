@@ -793,6 +793,9 @@ int check_acs_convergence(int *prev_valid_examples, int *valid_examples, int** p
 int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples, int* kernel_choice, double spl_weight_pos, double spl_weight_neg,int* invalidPositives, int* validPositives) {
 	long i, j;
     int pos_count=0;
+
+	for(i=0; i<m;i++)
+		valid_examples[i]=0;
     if(!sparm->multi_kernel_spl){
         for(i=0; i<sm->num_kernels;i++) {
             kernel_choice[i]=1;   //since we aren't doing multi_kernel learning, all are on no matter what they said. 
@@ -857,11 +860,15 @@ int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPL
     {
         valid_examples[slack[i].index]=1;
     }
-    for (i=pos_cutoff; i<neg_cutoff;i++)
+    for (i=pos_count; i<neg_cutoff;i++)
     {
         assert(i<m);
         valid_examples[slack[i].index]=1;
     }
+
+	for (i=0; i<pos_count;i++)
+		printf("%d ", valid_examples[i]);
+	printf("\n");
     nValid = pos_cutoff + (neg_cutoff-pos_count);
 
 	free(slack);
@@ -1124,7 +1131,7 @@ int main(int argc, char* argv[]) {
 			}
 		}
 		int initIter;
-		for (initIter=0;initIter<2;initIter++) {
+		for (initIter=0;initIter<2;initIter++) { // Rafi: Initial iterations here
 		  if(!sparm.optimizer_type) {
 		    primal_obj = cutting_plane_algorithm(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples, valid_example_kernels);
 		  } else {

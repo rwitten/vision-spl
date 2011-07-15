@@ -38,6 +38,7 @@ int main(int argc, char* argv[]) {
   double avghingeloss,avgloss,l,hinge_l;
   LABEL y;
   long i, correct;
+  double weighted_correct;
 
   char testfile[1024];
   char modelfile[1024];
@@ -82,11 +83,13 @@ int main(int argc, char* argv[]) {
   
   avghingeloss = 0.0;
   correct = 0;
+  weighted_correct=0.0;
   int impute = (int) (finlatent == NULL);
   int *valid_example_kernel = (int *) malloc(5*sizeof(int));
   for(i = 0; i < 5; i++)
     valid_example_kernel[i] = 1;
   printf("IS PLANNING TO IMPUTE %d\n",impute);
+  double total_example_weight = 0;
   for (i=0;i<testsample.n;i++) {
     if(finlatent) {
         read_latent_var(&h,finlatent);
@@ -97,6 +100,7 @@ int main(int argc, char* argv[]) {
         double score = classify_struct_example(testsample.examples[i].x,&y,&h,cached_images,&model,&sparm,impute,&max_score_positive);
     l = loss(testsample.examples[i].y,y,h,&sparm);
     if (l<.1) correct++;
+	if (l<.1) weighted_correct+=testsample.examples[i].x.example_cost;
 
 		print_label(y,flabel);
 		fprintf(flabel,"\n"); fflush(flabel);
@@ -135,8 +139,8 @@ int main(int argc, char* argv[]) {
     printf("feature other choice l1norm %f l2norm %f\n", l1norm, l2norm);
     printf("hinge loss %f\n", hinge_l);*/
 
-    if(testsample.examples[i].y.label)
-        hinge_l *= sparm.pos_neg_cost_ratio;
+    total_example_weight += testsample.examples[i].x.example_cost;
+    hinge_l*= testsample.examples[i].x.example_cost;
     avghingeloss += hinge_l;
 
     free_label(y);
@@ -153,6 +157,9 @@ int main(int argc, char* argv[]) {
   printf("Objective Value %f %f\n\n\n", sparm.C, (sparm.C * avghingeloss) + w_cost);
   printf("Average hinge loss on dataset: %.4f\n", avghingeloss);
   printf("Zero/one error on test set: %.4f\n", 1.0 - ((float) correct)/testsample.n);
+  printf("Weighted zero/one error on the test set %.4f\n", 	1.0 - (weighted_correct/total_example_weight));
+
+  printf("zeroone %.4f weightedzeroone %.4f\n", 1.0 - ((float) correct)/testsample.n, 1.0 - (weighted_correct/total_example_weight));  
 
   fclose(fscore);
 

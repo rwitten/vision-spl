@@ -4,7 +4,7 @@ FILES=`command ls *guesses* | grep -v .ap`
 cd ..
 for f in $FILES
 do
-    ./ap_compute.sh ${f} output/${f}.ap `pwd`
+    ./ap_compute.sh output/${f} output/${f}.ap `pwd`
 	echo "./ap_compute.sh ${f} output/${f}.ap"
 done
 
