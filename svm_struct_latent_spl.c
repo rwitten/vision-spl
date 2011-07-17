@@ -986,7 +986,8 @@ double compute_current_loss(SAMPLE val, IMAGE_KERNEL_CACHE ** cached_images, STR
 	for(i = 0; i < val.n; i++)
 	{
           double max_positive_score;
-          classify_struct_example(val.examples[i].x,&y,&h,cached_images,sm,sparm,1,&max_positive_score);
+          LATENT_VAR argmax_h_positive;
+          classify_struct_example(val.examples[i].x,&y,&h,cached_images,sm,sparm,1,&max_positive_score,&argmax_h_positive);
 		store = loss(val.examples[i].y,y,h,sparm);
 		cur_loss += store;
 	}

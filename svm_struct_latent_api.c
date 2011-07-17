@@ -475,7 +475,7 @@ void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, int start_x, 
   for (x = 0; x < num_across; ++x) {
     for (y = 0; y < num_down; ++y) {
       descriptor = points_and_descriptors[total_num_down * (x + start_x) + (y + start_y)].descriptor;
-      if (max_pool[descriptor - 1] == '\0') {
+      if (max_pool[descriptor - 1] == '\0') { //CAUTION: Do NOT use > or < here!  char might be signed, in which case (char)0xff < '\0'!  == is fine, because even in two's complement form, (char)0xff != '\0'.
 	max_pool[descriptor - 1] = (char)0xff;
 	words[*num_words].wnum = descriptor - 1 + descriptor_offset;
 	words[*num_words].weight = 1.0;
@@ -507,6 +507,29 @@ void zero_svector_parts(int * valid_kernels, SVECTOR * fvec, STRUCTMODEL * sm) {
       word_ind++;
     }
   }
+}
+
+void log_psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, FILE * fp, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm) {
+  SVECTOR * psi_vect = psi(x, y, h, cached_images, valid_kernels, sm, sparm);
+  double * dense_vect = calloc(sm->sizePsi, sizeof(double));
+  char img_num_str[1024];
+  char * img_num_ptr = img_num_str;
+  strcpy(img_num_ptr, x.image_path);
+  img_num_ptr = strchr(img_num_ptr, (int)('/'));
+  img_num_ptr++;
+  img_num_ptr = strchr(img_num_ptr, (int)('/'));
+  img_num_ptr++;
+  fprintf(fp, "%s ", img_num_ptr);
+  int i;
+  for (i = 0; psi_vect->words[i].wnum != 0; ++i) {
+    dense_vect[psi_vect->words[i].wnum - 1] = psi_vect->words[i].weight;
+  }
+  for (i = 0; i < sm->sizePsi; ++i) {
+    fprintf(fp, "%.16g ", dense_vect[i]);
+  }
+  fprintf(fp, "\n");
+  free_svector(psi_vect);
+  free(dense_vect);
 }
 
 SVECTOR *psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm) {
@@ -585,8 +608,7 @@ double compute_w_T_psi(PATTERN *x, int position_x, int position_y, int class, IM
   return w_T_psi;
 }
 
-
-double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int impute, double * max_score_positive) {
+double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int impute, double * max_score_positive, LATENT_VAR * argmax_h_positive) {
 /*
   Makes prediction with input pattern x with weight vector in sm->w,
   i.e., computing argmax_{(y,h)} <w,psi(x,y,h)>. 
@@ -627,6 +649,8 @@ double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_
                                 //printf("score = %f\n", score);
                                 if (cur_class > 0 && score > *max_score_positive) {
                                   *max_score_positive = score;
+                                  argmax_h_positive->position_x = cur_position_x;
+                                  argmax_h_positive->position_y = cur_position_y;
                                 }
 			}
             if(!impute)

@@ -1,0 +1,11 @@
+function [avg_pos_dist, avg_pair_dist] = get_avg_psi_dists(psi_pos_file, psi_neg_file)
+  pos_psis = dlmread(psi_pos_file);
+  neg_psis = dlmread(psi_neg_file);
+  pos_psis = pos_psis(:,2:end);
+  neg_psis = neg_psis(:,2:end);
+  tot_pos_dist = sum(pdist(pos_psis));
+  tot_neg_dist = sum(pdist(neg_psis));
+  tot_pos_neg_dist = sum(pdist([pos_psis ; neg_psis]));
+  tot_pair_dist = tot_pos_neg_dist - tot_pos_dist - tot_neg_dist; %if we had Matlab R2010 or later, we could just use pdist2(pos_psis, neg_psis) to get this
+  avg_pos_dist = tot_pos_dist / nchoosek(size(pos_psis,1),2);
+  avg_pair_dist = tot_pair_dist / (size(pos_psis,1) * size(neg_psis,1));
