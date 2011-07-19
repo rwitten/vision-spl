@@ -108,7 +108,7 @@ void find_most_violated_constraint(EXAMPLE *ex, LABEL *ybar, LATENT_VAR *hbar, I
 
 double print_all_scores(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, double C, int *valid_examples, int ** valid_example_kernels) {
 
-  long i, j;
+  long i;
   SVECTOR *f, *fy, *fybar, *lhs;
   LABEL       ybar;
   LATENT_VAR hbar;
@@ -167,7 +167,7 @@ double print_all_scores(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CAC
 
 double current_obj_val(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, double C, int *valid_examples, int ** valid_example_kernels) {
 
-  long i, j;
+  long i;
   SVECTOR *f, *fy, *fybar, *lhs;
   LABEL       ybar;
   LATENT_VAR hbar;
@@ -323,7 +323,7 @@ void find_most_violated_constraint_parallel(int m,EXAMPLE* ex_list, LABEL* ybar_
 
 SVECTOR* find_cutting_plane(EXAMPLE *ex, SVECTOR **fycache, double *margin, long m, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples, int** valid_example_kernels) {
 
-  long i, j;
+  long i;
   SVECTOR *f, *fy, *fybar, *lhs;
   LABEL       ybar;
   LATENT_VAR hbar;
@@ -345,15 +345,15 @@ SVECTOR* find_cutting_plane(EXAMPLE *ex, SVECTOR **fycache, double *margin, long
         }
    }
 
-  LABEL*       ybar_list = malloc(m*sizeof(LABEL));
-  LATENT_VAR* hbar_list = malloc(m*sizeof(LATENT_VAR));
+  LABEL*       ybar_list =(LABEL*) ( malloc(m*sizeof(LABEL)));
+  LATENT_VAR* hbar_list = (LATENT_VAR*)(malloc(m*sizeof(LATENT_VAR)));
 
   struct timeval start_time;
   struct timeval finish_time;
   gettimeofday(&start_time, NULL);
   find_most_violated_constraint_parallel(m,ex, ybar_list, hbar_list, cached_images,valid_examples, valid_example_kernels,  sm, sparm);
   gettimeofday(&finish_time, NULL);
-  int microseconds = 1e6 * (int)(finish_time.tv_sec - start_time.tv_sec) + (int)(finish_time.tv_usec - start_time.tv_usec);
+  //double microseconds = 1e6 * (int)(finish_time.tv_sec - start_time.tv_sec) + (int)(finish_time.tv_usec - start_time.tv_usec);
 
   for (i=0;i<m;i++) {
 
@@ -793,6 +793,9 @@ int check_acs_convergence(int *prev_valid_examples, int *valid_examples, int** p
 int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples, int* kernel_choice, double spl_weight_pos, double spl_weight_neg,int* invalidPositives, int* validPositives) {
 	long i, j;
     int pos_count=0;
+
+	for(i=0; i<m;i++)
+		valid_examples[i]=0;
     if(!sparm->multi_kernel_spl){
         for(i=0; i<sm->num_kernels;i++) {
             kernel_choice[i]=1;   //since we aren't doing multi_kernel learning, all are on no matter what they said. 
@@ -804,8 +807,10 @@ int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPL
         assert(spl_weight_pos<=0.0);
 		for (i=0;i<m;i++)
 			valid_examples[i] = 1;
+		printf("Hooray for CCCP\n");fflush(stdout);
 		return (m);
 	}
+	printf("NO CCCP?\n");fflush(stdout);
 
 	sortStruct *slack = (sortStruct *) malloc(m*sizeof(sortStruct));
 	LABEL ybar;
@@ -847,8 +852,8 @@ int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPL
     qsort(&slack[pos_count],m-pos_count,sizeof(sortStruct),&compar);
 	int nValid = 0;
     
-    int pos_cutoff = (int)round(pos_count*spl_weight_pos);
-    int neg_cutoff = pos_count+(int)round((m-pos_count)*spl_weight_neg);
+    int pos_cutoff = (int)roundf(pos_count*spl_weight_pos);
+    int neg_cutoff = pos_count+(int)roundf((m-pos_count)*spl_weight_neg);
 
     *validPositives = pos_cutoff;
     *invalidPositives = pos_count - pos_cutoff;
@@ -857,11 +862,15 @@ int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPL
     {
         valid_examples[slack[i].index]=1;
     }
-    for (i=pos_cutoff; i<neg_cutoff;i++)
+    for (i=pos_count; i<neg_cutoff;i++)
     {
         assert(i<m);
         valid_examples[slack[i].index]=1;
     }
+
+	for (i=0; i<pos_count;i++)
+		printf("%d ", valid_examples[i]);
+	printf("\n");
     nValid = pos_cutoff + (neg_cutoff-pos_count);
 
 	free(slack);
@@ -882,33 +891,35 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
 
     long i, k, j;
 
-    int* nValids = calloc(sm->num_kernels,sizeof(int));
-    int* posInvalids = calloc(sm->num_kernels,sizeof(int));
-    int* posValids = calloc(sm->num_kernels, sizeof(int));
+    int* nValids = (int*)(calloc(sm->num_kernels,sizeof(int)));
+    int* posInvalids = (int*)(calloc(sm->num_kernels,sizeof(int)));
+    int* posValids = (int*)(calloc(sm->num_kernels, sizeof(int)));
 
 	int *prev_valid_examples = (int *) malloc(m*sizeof(int));
     int** prev_valid_example_kernels=(int**) malloc(m*sizeof(int*));
+
     for(i = 0; i<m;i++)
     {
         prev_valid_examples[i]=1;
-        prev_valid_example_kernels[i] = malloc(sm->num_kernels*sizeof(int));
+        prev_valid_example_kernels[i] = (int*)malloc(sm->num_kernels*sizeof(int));
         for(k=0; k<sm->num_kernels;k++)
             prev_valid_example_kernels[i][k] = 1;
+		valid_examples[i]=0;
     }
 
-   
-    memset(valid_examples, 0, m * sizeof(int));
+  
     int* this_kernels_examples = (int*) calloc( m, sizeof(int));
     int* kernel_info = (int*) calloc(sm->num_kernels, sizeof(int)); 
     for (i=0;i<sm->num_kernels;i++)
     {
       kernel_info[i] = 1;
-      memset(this_kernels_examples, 0, m * sizeof(int));
+	  for(j =0; j<m; j++)
+         this_kernels_examples[j]=0;
       posInvalids[i] = 0;
       posValids[i] = 0;
       nValids[i] = update_valid_examples(w, m, C, fycache, ex, cached_images, sm, sparm, this_kernels_examples,kernel_info, spl_weight_pos[i], spl_weight_neg[i],&posInvalids[i], &posValids[i]);
 
-        printf("%dth kernel gives us %d valids %d of which are pos and %d of which are neg\n", i, nValids[i], posValids[i], nValids[i]-posValids[i] ); 
+        printf("%ldth kernel gives us %d valids %d of which are pos and %d of which are neg\n", i, nValids[i], posValids[i], nValids[i]-posValids[i] );  fflush(stdout);
         for(j=0; j<m;j++) {
             valid_example_kernels[j][i] = this_kernels_examples[j];
 	        if (this_kernels_examples[j]) { 
@@ -921,12 +932,29 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
     for (i=0;i<sm->sizePsi+1;i++)
             w[i] = 0.0;
 
+//	for(i=0; i< m; i++)
+//	{
+//		double total_included=0.0;
+//		for(j=0; j< sm->num_kernels; j++)
+//		{
+//			total_included += valid_example_kernels[i][j];
+//		}
+//		double percent_included = total_included/sm->num_kernels;
+//		ex[i].x.example_cost *= percent_included;
+//	}
+
     if(!sparm->optimizer_type) {
         cutting_plane_algorithm(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, sm, sparm, valid_examples, valid_example_kernels);
         } else {
                   assert(0);
                   //relaxed_primal_obj = stochastic_subgradient_descent(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, sm, sparm, valid_examples);
      }
+
+//	for(i=0; i< m; i++)
+//	{
+//		ex[i].x.example_cost = (ex[i].y.label ? sparm->pos_neg_cost_ratio : 1.0);
+//	}
+	
 
      double primal_obj;
     primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, prev_valid_examples, prev_valid_example_kernels);
@@ -1022,7 +1050,7 @@ int main(int argc, char* argv[]) {
   
   double decrement;
   double primal_obj, last_primal_obj;
-  double stop_crit; 
+  double stop_crit=-1; 
 	char itermodelfile[2000];
 
 	/* self-paced learning variables */
@@ -1062,7 +1090,7 @@ int main(int argc, char* argv[]) {
   ex = sample.examples;
   m = sample.n;
 
-  printf("m = %d\n", m);
+  printf("m = %ld\n", m);
 
   w = create_nvector(sm.sizePsi);
   clear_nvector(w, sm.sizePsi);
@@ -1083,7 +1111,7 @@ int main(int argc, char* argv[]) {
 
   int k;
 
-  int * all_ones = calloc(sm.num_kernels, sizeof(int));
+  int * all_ones = (int*)calloc(sm.num_kernels, sizeof(int));
   for (k = 0; k < sm.num_kernels; k++) {
     all_ones[k] = 1;
   }
@@ -1101,14 +1129,14 @@ int main(int argc, char* argv[]) {
  	/* learn initial weight vector using all training examples */
   int j;
 
-  int** allon_example_kernels = malloc(m*sizeof(int*));
-  int** valid_example_kernels = malloc(m * sizeof(int*));
+  int** allon_example_kernels = (int**)malloc(m*sizeof(int*));
+  int** valid_example_kernels = (int**)malloc(m * sizeof(int*));
   for (i = 0; i < m; ++i) {
-    allon_example_kernels[i] = calloc(sm.num_kernels, sizeof(int));
+    allon_example_kernels[i] = (int*)calloc(sm.num_kernels, sizeof(int));
     for(j=0; j<sm.num_kernels; j++) {
         allon_example_kernels[i][j]=1;
     }
-    valid_example_kernels[i] = calloc(sm.num_kernels, sizeof(int));
+    valid_example_kernels[i] = (int*)calloc(sm.num_kernels, sizeof(int));
   }
 	valid_examples = (int *) malloc(m*sizeof(int));
     int* allon_examples = (int*) malloc(m*sizeof(int));
@@ -1125,7 +1153,7 @@ int main(int argc, char* argv[]) {
 			}
 		}
 		int initIter;
-		for (initIter=0;initIter<2;initIter++) {
+		for (initIter=0;initIter<2;initIter++) { // Rafi: Initial iterations here
 		  if(!sparm.optimizer_type) {
 		    primal_obj = cutting_plane_algorithm(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples, valid_example_kernels);
 		  } else {
@@ -1155,7 +1183,7 @@ int main(int argc, char* argv[]) {
   /* errors for validation set */
 
   double cur_loss, best_loss = DBL_MAX;
-  int loss_iter;
+  int loss_iter=-1;
 
 
 	/* initializations */
@@ -1165,8 +1193,8 @@ int main(int argc, char* argv[]) {
 	FILE	*flatent = fopen(latentfile,"w");
 	clock_t start = clock();
 
-        spl_weight_pos = calloc(sm.num_kernels, sizeof(double));
-        spl_weight_neg = calloc(sm.num_kernels, sizeof(double));
+        spl_weight_pos = (double*)calloc(sm.num_kernels, sizeof(double));
+        spl_weight_neg = (double*)calloc(sm.num_kernels, sizeof(double));
         for (k = 0; k < sm.num_kernels; k++) {
           spl_weight_pos[k] = init_spl_weight;
           spl_weight_neg[k] = init_spl_weight;
@@ -1187,7 +1215,7 @@ int main(int argc, char* argv[]) {
     //this is the outer loop.   
     while ((outer_iter<2)||((!stop_crit)&&(outer_iter<MAX_OUTER_ITER))) { 
         if(!outer_iter && init_spl_weight) {
-            int * valid_kernels = calloc(sm.num_kernels, sizeof(int));
+            int * valid_kernels = (int*)calloc(sm.num_kernels, sizeof(int));
             if (sparm.multi_kernel_spl) {
                 for (k = 0; k < sm.num_kernels; ++k) {
                       valid_kernels[k] = 1;
@@ -1208,7 +1236,7 @@ int main(int argc, char* argv[]) {
        }
        printf("for negative examples spl weights are %.4f %.4f %.4f %.4f %.4f\n", spl_weight_neg[0], spl_weight_neg[1], spl_weight_neg[2], spl_weight_neg[3], spl_weight_neg[4]);
        printf("for positive examples spl weights are %.4f %.4f %.4f %.4f %.4f\n", spl_weight_pos[0], spl_weight_pos[1], spl_weight_pos[2], spl_weight_pos[3], spl_weight_pos[4]);
-    printf("\n\n\nOUTER ITER %d\n\n\n", outer_iter); 
+    printf("\n\n\nOUTER ITER %d here \n\n\n", outer_iter); 
     /* cutting plane algorithm */
 
 		/* solve biconvex self-paced learning problem */
@@ -1512,9 +1540,9 @@ int resize_cleanup(int size_active, int **ptr_idle, double **ptr_alpha, double *
 void approximate_to_psd(double **G, int size_active, double eps)
 {
 	int i,j,k;
-	double *copy_G = malloc(size_active*size_active*sizeof(double));
-	double *eig_vec = malloc(size_active*size_active*sizeof(double));
-	double *eig_val = malloc(size_active*sizeof(double));
+	double *copy_G = (double*) malloc(size_active*size_active*sizeof(double));
+	double *eig_vec =(double*)malloc(size_active*size_active*sizeof(double));
+	double *eig_val =(double*) malloc(size_active*sizeof(double));
 
 	for(i = 0; i < size_active; i++)
 		for(j = 0; j < size_active; j++)
@@ -1545,7 +1573,7 @@ void approximate_to_psd(double **G, int size_active, double eps)
 
 void Jacobi_Cyclic_Method(double eigenvalues[], double *eigenvectors, double *A, int n)
 {
-   int row, i, j, k, m;
+   int i, j, k, m;
    double *pAk, *pAm, *p_r, *p_e;
    double threshold_norm;
    double threshold;
@@ -1554,7 +1582,6 @@ void Jacobi_Cyclic_Method(double eigenvalues[], double *eigenvectors, double *A,
    double dum1;
    double dum2;
    double dum3;
-   double r;
    double max;
 
                   // Take care of trivial cases
