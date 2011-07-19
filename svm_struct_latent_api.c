@@ -18,6 +18,7 @@
 #include <assert.h>
 #include <string.h>
 #include <time.h>
+#include <sys/time.h>
 #include "svm_struct_latent_api_types.h"
 #include "svm_struct_latent_api.h"
 #include "./SFMT-src-1.3.3/SFMT.h"
@@ -73,7 +74,7 @@ SAMPLE read_struct_examples(char *file, STRUCTMODEL * sm, STRUCT_LEARN_PARM *spa
 
   SAMPLE sample;
   int num_examples,label,height,width;
-	int i,j,k,l;
+	int i;
   FILE *fp;
   char line[MAX_INPUT_LINE_LENGTH]; 
   char *pchar, *last_pchar;
@@ -137,7 +138,6 @@ SAMPLE read_struct_examples(char *file, STRUCTMODEL * sm, STRUCT_LEARN_PARM *spa
     if (sm->bbox_scale >= 0.0) {
       sample.examples[i].x.bbox_width = (int)(sm->bbox_scale * sample.examples[i].x.bbox_width);
       sample.examples[i].x.bbox_height = (int)(sm->bbox_scale * sample.examples[i].x.bbox_height);
-      printf("bbox_width = %d, bbox_height = %d\n", sample.examples[i].x.bbox_width, sample.examples[i].x.bbox_height);
     } else {
       sample.examples[i].x.bbox_width = width - 1;
       sample.examples[i].x.bbox_height = height - 1;
@@ -149,10 +149,10 @@ SAMPLE read_struct_examples(char *file, STRUCTMODEL * sm, STRUCT_LEARN_PARM *spa
     sample.examples[i].x.height = get_num_bbox_positions(height, sample.examples[i].x.bbox_height, sm->bbox_step_y);
     sample.examples[i].x.example_id = i;
     sample.examples[i].x.example_cost = (label ? sparm->pos_neg_cost_ratio : 1.0);
-    sample.examples[i].x.descriptor_top_left_xs = calloc(sm->num_kernels, sizeof(int));
-    sample.examples[i].x.descriptor_top_left_ys = calloc(sm->num_kernels, sizeof(int));
-    sample.examples[i].x.descriptor_num_acrosses = calloc(sm->num_kernels, sizeof(int));
-    sample.examples[i].x.descriptor_num_downs = calloc(sm->num_kernels, sizeof(int));
+    sample.examples[i].x.descriptor_top_left_xs = (int*)calloc(sm->num_kernels, sizeof(int));
+    sample.examples[i].x.descriptor_top_left_ys = (int*)calloc(sm->num_kernels, sizeof(int));
+    sample.examples[i].x.descriptor_num_acrosses = (int*)calloc(sm->num_kernels, sizeof(int));
+    sample.examples[i].x.descriptor_num_downs = (int*)calloc(sm->num_kernels, sizeof(int));
   }
   assert(i==num_examples);
   fclose(fp);  
@@ -471,7 +471,7 @@ void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, int start_x, 
   int x, y, descriptor,l;
   int init_num_words = *num_words;
   double sum = 0.0;
-  char * max_pool = calloc(sm->kernel_sizes[kernel_ind], sizeof(char));
+  char * max_pool = (char*)calloc(sm->kernel_sizes[kernel_ind], sizeof(char));
   for (x = 0; x < num_across; ++x) {
     for (y = 0; y < num_down; ++y) {
       descriptor = points_and_descriptors[total_num_down * (x + start_x) + (y + start_y)].descriptor;
@@ -572,11 +572,11 @@ SVECTOR *psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cached_imag
   //return fvec;
 }
 
-double compute_w_T_psi(PATTERN *x, int position_x, int position_y, int class, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm) {
+double compute_w_T_psi(PATTERN *x, int position_x, int position_y, int classi, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm) {
   double w_T_psi;
   LABEL y;
   LATENT_VAR h;
-  y.label = class;
+  y.label = classi;
   h.position_x = position_x;
   h.position_y = position_y;
   SVECTOR * psi_vect = psi(*x, y, h, cached_images, valid_kernels, sm, sparm);
@@ -595,15 +595,14 @@ double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_
 */
   
 //  printf("sparm->n_classes = %d, x.width = %d, x.height = %d\n", sparm->n_classes, x.width, x.height);
-   int i, l;
+   int l;
 	int width = x.width;
 	int height = x.height;
 	int cur_class, cur_position_x, cur_position_y;
 	double max_score;
 	double score;
-	FILE	*fp;
 
-        int * valid_kernels = calloc(sm->num_kernels, sizeof(int));
+        int * valid_kernels = (int*)calloc(sm->num_kernels, sizeof(int));
         for (l = 0; l < sm->num_kernels; ++l) {
           valid_kernels[l] = 1;
         }
@@ -697,8 +696,8 @@ void find_most_violated_constraint_marginrescaling(PATTERN x, LATENT_VAR hstar, 
 	gettimeofday(&finish_time, NULL);
 
 	if (y.label) {
-	  int million = 1000000;
-	  int microseconds = million * (int)(finish_time.tv_sec - start_time.tv_sec) + (int)(finish_time.tv_usec - start_time.tv_usec);
+	  //int million = 1000000;
+	  //int microseconds = million * (int)(finish_time.tv_sec - start_time.tv_sec) + (int)(finish_time.tv_usec - start_time.tv_usec);
 	  // printf("find_most_violated_constraint_marginrescaling() took %f milliseconds.\n", microseconds / 1000.0);
 	}
 
@@ -744,7 +743,7 @@ LATENT_VAR infer_latent_variables(PATTERN x, LABEL y, IMAGE_KERNEL_CACHE ** cach
 */
 
   //printf("width = %d, height = %d\n", x.width, x.height);
-  time_t start_time = time(NULL);
+  //time_t start_time = time(NULL);
 
   LATENT_VAR h;
 
@@ -754,14 +753,14 @@ LATENT_VAR infer_latent_variables(PATTERN x, LABEL y, IMAGE_KERNEL_CACHE ** cach
     return h;
   }
 
-  int i,l;
+  int l;
 	int width = x.width;
 	int height = x.height;
 	int cur_position_x, cur_position_y;
 	double max_score, score;
-	FILE	*fp;
+//	FILE	*fp;
 
-        int * valid_kernels = calloc(sm->num_kernels, sizeof(int));
+        int * valid_kernels = (int*)calloc(sm->num_kernels, sizeof(int));
         for (l = 0; l < sm->num_kernels; ++l) {
           valid_kernels[l] = 1;
         }
@@ -780,7 +779,7 @@ LATENT_VAR infer_latent_variables(PATTERN x, LABEL y, IMAGE_KERNEL_CACHE ** cach
 	
         free(valid_kernels);
 
-	time_t finish_time = time(NULL);
+	//time_t finish_time = time(NULL);
 
 	//printf("infer_latent_variables() took %d seconds to do %d h values.\n", (int)finish_time - (int)start_time, x.width * x.height);
 
