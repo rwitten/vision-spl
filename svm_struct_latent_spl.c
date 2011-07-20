@@ -852,8 +852,8 @@ int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPL
     qsort(&slack[pos_count],m-pos_count,sizeof(sortStruct),&compar);
 	int nValid = 0;
     
-    int pos_cutoff = (int)roundf(pos_count*spl_weight_pos);
-    int neg_cutoff = pos_count+(int)roundf((m-pos_count)*spl_weight_neg);
+    int pos_cutoff = (int)floor(pos_count*spl_weight_pos + 0.5);
+    int neg_cutoff = pos_count+(int)floor((m-pos_count)*spl_weight_neg + 0.5);
 
     *validPositives = pos_cutoff;
     *invalidPositives = pos_count - pos_cutoff;
@@ -1074,7 +1074,7 @@ int main(int argc, char* argv[]) {
 
   /* read in examples */
   alldata = read_struct_examples(trainfile, &sm, &sparm);
-  int ntrain = (int) round(1.0*alldata.n); /* no validation set */
+  int ntrain = (int) floor(1.0*alldata.n + 0.5); /* no validation set */
 	if(ntrain < alldata.n)
 	{
 	 srand(time(NULL));
@@ -1472,7 +1472,7 @@ int resize_cleanup(int size_active, int **ptr_idle, double **ptr_alpha, double *
   double *delta=*ptr_delta;
 	DOC	**dXc = *ptr_dXc;
 	double **G = *ptr_G;
-	int new_mv_iter;
+	int new_mv_iter = -1; //I'm assuming that this always gets set later (it used to be uninitialized)
 
   i=0;
   while ((i<size_active)&&(idle[i]<IDLE_ITER)) i++;
@@ -1489,13 +1489,19 @@ int resize_cleanup(int size_active, int **ptr_idle, double **ptr_alpha, double *
     free_example(dXc[i],1);
     dXc[i] = dXc[j];
     dXc[j] = NULL;
-		if(j == *mv_iter)
+		if(j == *mv_iter) {
 			new_mv_iter = i;
-
+		}
     i++;
     j++;
     while((j<size_active)&&(idle[j]>=IDLE_ITER)) j++;
   }
+
+if (new_mv_iter == -1) { //Check to make sure it's been set
+	printf("CAUTION: in resize_cleanup(), new_mv_iter hasn't been reset to anything!  It used to be uninitialized, so something could've been fucked up!\n");
+	assert(0);
+}
+
   for (k=i;k<size_active;k++) {
 		if (G[k]!=NULL) free(G[k]);
     if (dXc[k]!=NULL) free_example(dXc[k],1);

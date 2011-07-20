@@ -195,8 +195,6 @@ void init_struct_model(int sample_size, char * kernel_info_file, STRUCTMODEL *sm
   variables in sm here. 
 */
 
-  int i,j,k;
-
   read_kernel_info(kernel_info_file, sm);
 
   sm->n = sample_size;
@@ -312,7 +310,8 @@ FILE * open_kernelized_image_file(PATTERN x, int kernel_ind, STRUCTMODEL * sm) {
 //}
 
 void cut_off_last_column(IMAGE_KERNEL_CACHE * ikc) {
-  int p, last_p;
+  int p;
+  int last_p = -1;
   int last_x = ikc->points_and_descriptors[ikc->num_points - 1].x;
   for (p = ikc->num_points - 1; p >= 0; --p) {
     if (ikc->points_and_descriptors[p].x != last_x) {
@@ -320,13 +319,13 @@ void cut_off_last_column(IMAGE_KERNEL_CACHE * ikc) {
       break;
     }
   }
-  //printf("new last x = %d\n", ikc->points_and_descriptors[last_p - 1].x);
+  assert(last_p != -1);
   ikc->points_and_descriptors = (POINT_AND_DESCRIPTOR *)realloc(ikc->points_and_descriptors, last_p * sizeof(POINT_AND_DESCRIPTOR));
   ikc->num_points = last_p;
 }
 
 void fill_image_kernel_cache(PATTERN x, int kernel_ind, IMAGE_KERNEL_CACHE * ikc, STRUCTMODEL * sm) {
-  int p, l;
+  int p;
   char throwaway_line[1024];
   FILE * fp = open_kernelized_image_file(x, kernel_ind, sm);
   fscanf(fp, "%d\n", &(ikc->num_points));
@@ -432,16 +431,15 @@ void fill_max_pool(PATTERN x, LATENT_VAR h, int kernel_ind, IMAGE_KERNEL_CACHE *
   //  int microseconds = million * (int)(finish_time.tv_sec - start_time.tv_sec) + (int)(finish_time.tv_usec - start_time.tv_usec);
     //printf("get_descriptor_counts() takes %f microseconds.\n", microseconds / 1000.0);
   //} else {
-    struct timeval start_time;
-    struct timeval finish_time;
-    gettimeofday(&start_time, NULL);
-    int l;
+    //struct timeval start_time;
+    //struct timeval finish_time;
+    //gettimeofday(&start_time, NULL);
     //for (l = 0; l < 1000; ++l) {
     do_max_pooling(points_and_descriptors, cur_bbox_start_x, bbox_start_y, cur_bbox_end_x - cur_bbox_start_x, bbox_end_y - bbox_start_y, x.descriptor_num_downs[kernel_ind], kernel_ind, words, descriptor_offset, num_words, sm);
     //}
-    gettimeofday(&finish_time, NULL);
-    int million = 1000000;
-    int microseconds = million * (int)(finish_time.tv_sec - start_time.tv_sec) + (int)(finish_time.tv_usec - start_time.tv_usec);
+    //gettimeofday(&finish_time, NULL);
+    //int million = 1000000;
+    //int microseconds = million * (int)(finish_time.tv_sec - start_time.tv_sec) + (int)(finish_time.tv_usec - start_time.tv_usec);
     //printf("get_descriptor_counts_entire_bbox() takes %f microseconds.\n", microseconds / 1000.0);
 //  }
 }
@@ -696,7 +694,6 @@ void find_most_violated_constraint_marginrescaling(PATTERN x, LATENT_VAR hstar, 
 	int height = x.height;
 	int cur_class, cur_position_x, cur_position_y;
 	double max_score,score;
-	FILE	*fp;
 	
 	//make explicit the idea that (y, hstar) is what's returned if the constraint is not violated
 	initialize_most_violated_constraint_search(x, hstar, y, ybar, hbar, &max_score, cached_images, valid_kernels, sm, sparm);
@@ -719,11 +716,11 @@ void find_most_violated_constraint_marginrescaling(PATTERN x, LATENT_VAR hstar, 
 
 	gettimeofday(&finish_time, NULL);
 
-	if (y.label) {
+	//if (y.label) {
 	  //int million = 1000000;
 	  //int microseconds = million * (int)(finish_time.tv_sec - start_time.tv_sec) + (int)(finish_time.tv_usec - start_time.tv_usec);
 	  // printf("find_most_violated_constraint_marginrescaling() took %f milliseconds.\n", microseconds / 1000.0);
-	}
+	//}
 
 	//time_t finish_time = time(NULL);
 	//printf("find_most_violated_constraint_marginrescaling took %d seconds to do %d h values.\n", (int)finish_time - (int)start_time, x.width * x.height);
@@ -736,7 +733,6 @@ void find_most_violated_constraint_differenty(PATTERN x, LATENT_VAR hstar, LABEL
   int height = x.height;
   int cur_class, cur_position_x, cur_position_y;
   double max_score,score;
-  FILE    *fp;
 
   //make explicit the idea that (y, hstar) is what's returned if the constraint is not violated
   initialize_most_violated_constraint_search(x, hstar, y, ybar, hbar, &max_score, cached_images, valid_kernels, sm, sparm);
@@ -771,11 +767,11 @@ LATENT_VAR infer_latent_variables(PATTERN x, LABEL y, IMAGE_KERNEL_CACHE ** cach
 
   LATENT_VAR h;
 
-  if (y.label == 0) {
-    h.position_x = 0;
-    h.position_y = 0;
+h.position_x = 0;
+h.position_y = 0;
+if (y.label == 0) {
     return h;
-  }
+}
 
   int l;
 	int width = x.width;
@@ -857,9 +853,8 @@ void read_struct_model(char *model_file, STRUCTMODEL * sm) {
 */
 
   FILE *modelfl;
-  int i, fnum;
+  int fnum;
   double fweight;
-  char line[1000];
   
   modelfl = fopen(model_file,"r");
   if (modelfl==NULL) {
@@ -868,7 +863,6 @@ void read_struct_model(char *model_file, STRUCTMODEL * sm) {
   }
   
   sm->w = (double*)calloc(sm->sizePsi + 1, sizeof(double));
-  char str[1024];
   fscanf(modelfl, "%d\n", &(sm->bbox_height));
   fscanf(modelfl, "%d\n", &(sm->bbox_width));
   fscanf(modelfl, "%lf\n", &(sm->bbox_scale));
@@ -886,7 +880,7 @@ void free_struct_model(STRUCTMODEL sm, STRUCT_LEARN_PARM *sparm) {
 /*
   Free any memory malloc'ed in STRUCTMODEL sm after training. 
 */
-  int i, k;
+  int k;
   
   free(sm.w);
 

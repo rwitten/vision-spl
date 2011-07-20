@@ -36,7 +36,7 @@ double regularizaton_cost(double* w, long num_entries)
 }
 
 int main(int argc, char* argv[]) {
-  double avghingeloss,avgloss,l,hinge_l;
+  double avghingeloss,l,hinge_l;
   LABEL y;
   long i, correct;
   int log_psis;
@@ -59,8 +59,6 @@ int main(int argc, char* argv[]) {
 
   STRUCTMODEL model;
   STRUCT_LEARN_PARM sparm;
-  LEARN_PARM lparm;
-  KERNEL_PARM kparm;
 
   SAMPLE testsample;
   
@@ -111,7 +109,7 @@ int main(int argc, char* argv[]) {
     //printf("%f\n",sparm.C);
         double max_score_positive;
         LATENT_VAR argmax_h_positive;
-        double score = classify_struct_example(testsample.examples[i].x,&y,&h,cached_images,&model,&sparm,impute,&max_score_positive,&argmax_h_positive);
+        classify_struct_example(testsample.examples[i].x,&y,&h,cached_images,&model,&sparm,impute,&max_score_positive,&argmax_h_positive);
         if (log_psis) {
           LABEL pos_y;
           pos_y.label = 1;
