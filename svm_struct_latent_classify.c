@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
   weighted_correct=0.0;
   int impute = (int) (finlatent == NULL);
   int *valid_example_kernel = (int *) malloc(5*sizeof(int));
-  for(i = 0; i < 5; i++)
+  for(i = 0; i < model.num_kernels; i++)
     valid_example_kernel[i] = 1;
   printf("IS PLANNING TO IMPUTE %d\n",impute);
   double total_example_weight = 0;
@@ -109,10 +109,10 @@ int main(int argc, char* argv[]) {
 		fprintf(flatent,"\n"); fflush(flatent);
 
                 char * img_num_str = testsample.examples[i].x.image_path;
-                img_num_str = strchr(img_num_str, (int)('/'));
-                img_num_str++;
-                img_num_str = strchr(img_num_str, (int)('/'));
-                img_num_str++;
+//                img_num_str = strchr(img_num_str, (int)('/'));
+//                img_num_str++;
+//                img_num_str = strchr(img_num_str, (int)('/'));
+//                img_num_str++;
                 fprintf(fscore, "%s %f\n", img_num_str, max_score_positive); fflush(fscore);
 
       LABEL ybar;

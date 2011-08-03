@@ -24,7 +24,8 @@
 
 #define MAX_INPUT_LINE_LENGTH 10000
 #define DELTA 1
-#define BASE_DIR "/afs/cs.stanford.edu/u/rwitten/scratch/temp/spm/data/"
+#define BASE_DIR "/afs/cs.stanford.edu/u/rwitten/scratch/mkl_features/"
+//#define BASE_DIR "/afs/cs.stanford.edu/u/rwitten/scratch/temp/spm/data/"
 #define CONST_FILENAME_PART "_spquantized_1000_"
 #define CONST_FILENAME_SUFFIX ".mat"
 
@@ -254,7 +255,6 @@ FILE * open_kernelized_image_file(PATTERN x, int kernel_ind, STRUCTMODEL * sm) {
   strcat(file_path, CONST_FILENAME_PART);
   strcat(file_path, sm->kernel_names[kernel_ind]);
   strcat(file_path, CONST_FILENAME_SUFFIX);
-  //printf("file_path = %s\n", file_path);
   FILE * fp = fopen(file_path, "r");
   assert(fp != NULL);
   return fp;
@@ -363,7 +363,7 @@ void fill_image_kernel_cache(PATTERN x, int kernel_ind, IMAGE_KERNEL_CACHE * ikc
     printf("ERROR: Something's wrong with the grid structure of the data (or Kevin's code).  p = %d, num_points = %d\n", p, ikc->num_points);
     int q;
     for (q = 0; q < ikc->num_points; ++q) {
-      printf("pad.x = %d, pad.y = %d\n", ikc->points_and_descriptors[q].x,  ikc->points_and_descriptors[q].y);
+      //printf("pad.x = %d, pad.y = %d\n", ikc->points_and_descriptors[q].x,  ikc->points_and_descriptors[q].y);
     }
   }
   assert((ikc->num_points % p) == 0);
@@ -467,26 +467,33 @@ void fill_max_pool(PATTERN x, LATENT_VAR h, int kernel_ind, IMAGE_KERNEL_CACHE *
 //  }
 //}
 
+int word_cmp(const void * a, const void * b) {
+       WORD * word_a = (WORD *)a;
+       WORD * word_b = (WORD *)b;
+       return word_a->wnum - word_b->wnum;
+}
+
 void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, int start_x, int start_y, int num_across, int num_down, int total_num_down, int kernel_ind, WORD * words, int descriptor_offset, int * num_words, STRUCTMODEL * sm) {
   int x, y, descriptor,l;
   int init_num_words = *num_words;
-  double sum = 0.0;
+	double sum = 0.0;
   char * max_pool = calloc(sm->kernel_sizes[kernel_ind], sizeof(char));
   for (x = 0; x < num_across; ++x) {
     for (y = 0; y < num_down; ++y) {
       descriptor = points_and_descriptors[total_num_down * (x + start_x) + (y + start_y)].descriptor;
       if (max_pool[descriptor - 1] == '\0') {
-	max_pool[descriptor - 1] = (char)0xff;
-	words[*num_words].wnum = descriptor - 1 + descriptor_offset;
-	words[*num_words].weight = 1.0;
-	sum += 1.0;
-	(*num_words)++;
+				max_pool[descriptor - 1] = (char)0xff;
+				words[*num_words].wnum = descriptor - 1 + descriptor_offset;
+				words[*num_words].weight = 1.0;
+				sum += 1.0;
+				(*num_words)++;
       }
     }
   }
   for (l = init_num_words; l < *num_words; ++l) {
     words[l].weight /= sum;
   }
+  qsort(&(words[init_num_words]), *num_words - init_num_words, sizeof(WORD), word_cmp);
   free(max_pool);
 }
 
@@ -951,10 +958,10 @@ void print_latent_var(PATTERN x, LATENT_VAR h, FILE *flatent)
   char img_num_str[1024];
   char * img_num_ptr = img_num_str;
   strcpy(img_num_ptr, x.image_path);
-  img_num_ptr = strchr(img_num_ptr, (int)('/'));
-  img_num_ptr++;
-  img_num_ptr = strchr(img_num_ptr, (int)('/'));
-  img_num_ptr++;
+//  img_num_ptr = strchr(img_num_ptr, (int)('/'));
+//  img_num_ptr++;
+//  img_num_ptr = strchr(img_num_ptr, (int)('/'));
+//  img_num_ptr++;
   fprintf(flatent,"%s %d %d ", img_num_ptr, h.position_x,h.position_y);
 	fflush(flatent);
 }
