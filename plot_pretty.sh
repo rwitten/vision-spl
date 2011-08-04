@@ -33,31 +33,8 @@ do
 					tail -n 1 output/${names[$algorithm]}${C}_${fold}_$randomness.train_classify_output  | awk '{print $2;}' > output/${names[$algorithm]}${C}_${fold}_$randomness.train_classify_output.loss
 					tail -n 1 output/${names[$algorithm]}${C}_${fold}_$randomness.test_classify_output  | awk '{print $4;}' > output/${names[$algorithm]}${C}_${fold}_$randomness.test_classify_output.weighted_loss
 					tail -n 1 output/${names[$algorithm]}${C}_${fold}_$randomness.train_classify_output  | awk '{print $4;}' > output/${names[$algorithm]}${C}_${fold}_$randomness.train_classify_output.weighted_loss
-
 				fi
 			done
-		done 
-
-		if [ $fold_is_done -eq 0 ]; then
-			echo "FOLD  $fold  and C=$C ISN'T DONE"
-		fi
-		
-		if [ $fold_is_done -gt 0 ]; then # this fold has completed.
-			echo "FOLD $fold and C=$C IS DONE"
-			output_file="results_fold_"${C}_$fold
-			echo '         objective       train_loss    train_weighted_loss    test_loss    test_weighted_loss    train_ap     test_ap' > $output_file
-			
-			for algorithm in 1 2 3 
-			do
-				objective=` cat output/${names[$algorithm]}${C}_${fold}_*.train_objective | awk '{if(min==""){min=$1};if($1<min){min=$1}}END{print min}'`
-				train_loss=`cat output/${names[$algorithm]}${C}_${fold}_*train*.loss | awk '{if(min==""){min=$1};if($1<min){min=$1}}END{print min}'`
-				test_loss=`cat output/${names[$algorithm]}${C}_${fold}_*test*.loss | awk '{if(min==""){min=$1};if($1<min){min=$1}}END{print min}'`
-				train_weighted_loss=`cat output/${names[$algorithm]}${C}_${fold}_*train*.weighted_loss | awk '{if(min==""){min=$1};if($1<min){min=$1}}END{print min}'`
-				test_weighted_loss=`cat output/${names[$algorithm]}${C}_${fold}_*test*.weighted_loss | awk '{if(min==""){min=$1};if($1<min){min=$1}}END{print min}'`
-				train_ap=`cat output/${names[$algorithm]}${C}_${fold}_*train*.ap | awk '{if(max==""){max=$1};if($1>max){max=$1}}END{print max}'`
-				test_ap=`cat output/${names[$algorithm]}${C}_${fold}_*test*.ap | awk '{if(max==""){max=$1};if($1>max){max=$1}}END{print max}'`
-				echo ${names[$algorithm]} '    ' $objective '    ' $train_loss '    ' $train_weighted_loss '                ' $test_loss '    ' $test_weighted_loss '          ' $train_ap '     ' $test_ap >> $output_file
-			done	
-		fi
+		done
 	done
 done

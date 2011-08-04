@@ -2,7 +2,7 @@ names[1]='cccp'
 names[2]='spl'
 names[3]='splplus'
 
-base_dir='/afs/cs.stanford.edu/u/rwitten/projects/multi_kernel_spl'
+base_dir=`pwd`
 cd $base_dir
 
 for randomness in 1

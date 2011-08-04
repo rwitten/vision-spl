@@ -15,6 +15,7 @@
 /************************************************************************/
 #include <math.h>
 #include <stdio.h>
+#include <assert.h>
 #include "svm_struct_latent_api.h"
 #include "./svm_light/svm_learn.h"
 
@@ -42,6 +43,7 @@ int main(int argc, char* argv[]) {
   double avghingeloss,avgloss,l;
   LABEL y;
   long i, correct;
+  int log_psis;
   double weighted_correct;
 
   char testfile[1024];
@@ -50,28 +52,37 @@ int main(int argc, char* argv[]) {
 	char latentfile[1024];
 	char scorefile[1024];
     char inlatentfile[1024];
+    char psiposfile[1024];
+    char psinegfile[1024];
 	FILE	*flabel;
 	FILE	*flatent;
     FILE    *finlatent;
     FILE *fscore;
+    FILE *fpsipos;
+    FILE *fpsineg;
 
   STRUCTMODEL model;
   STRUCT_LEARN_PARM sparm;
-  LEARN_PARM lparm;
-  KERNEL_PARM kparm;
 
   SAMPLE testsample;
   
   LATENT_VAR h;
 
   /* read input parameters */
-  read_input_parameters(argc,argv,testfile,modelfile,labelfile,latentfile,inlatentfile,scorefile,&sparm);
+  read_input_parameters(argc,argv,testfile,modelfile,labelfile,latentfile,inlatentfile,scorefile,psiposfile,psinegfile,&log_psis,&sparm);
 
     printf("%f\n",sparm.C);
 	flabel = fopen(labelfile,"w");
 	flatent = fopen(latentfile,"w");
         fscore = fopen(scorefile, "w");
         finlatent = NULL;
+        fpsipos = NULL;
+        fpsineg = NULL;
+
+        if (log_psis) {
+          fpsipos = fopen(psiposfile, "w");
+          fpsineg = fopen(psinegfile, "w");
+        }
 
   init_struct_model(get_sample_size(testfile), KERNEL_INFO_FILE, &model);
 
@@ -146,6 +157,11 @@ int main(int argc, char* argv[]) {
 
   fclose(fscore);
 
+  if (log_psis) {
+    fclose(fpsipos);
+    fclose(fpsineg);
+  }
+
   free_cached_images(cached_images, &model);
   free_struct_sample(testsample);
   free_struct_model(model,&sparm);
@@ -155,7 +171,7 @@ int main(int argc, char* argv[]) {
 }
 
 
-void read_input_parameters(int argc, char **argv, char *testfile, char *modelfile, char *labelfile, char *latentfile, char *inlatentfile, char *scorefile, STRUCT_LEARN_PARM *sparm) {
+void read_input_parameters(int argc, char **argv, char *testfile, char *modelfile, char *labelfile, char *latentfile, char *inlatentfile, char *scorefile, char *psiposfile, char *psinegfile, int *log_psis, STRUCT_LEARN_PARM *sparm) {
 
   long i;
   
@@ -165,6 +181,9 @@ void read_input_parameters(int argc, char **argv, char *testfile, char *modelfil
   strcpy(latentfile, "lssvm_latent");
   strcpy(scorefile, "lssvm_score");
   strcpy(inlatentfile,"lssvm_inlatent");
+  strcpy(psiposfile, "");
+  strcpy(psinegfile, "");
+  *log_psis = 0;
   sparm->custom_argc = 0;
 
   for (i=1;(i<argc)&&((argv[i])[0]=='-');i++) {
@@ -188,10 +207,17 @@ void read_input_parameters(int argc, char **argv, char *testfile, char *modelfil
 		strcpy(latentfile,argv[i+3]);
         if(i+4<argc)
 	        strcpy(scorefile,argv[i+4]);
+        if(i+5<argc)
+          strcpy(psiposfile,argv[i+5]);
+        if(i+6<argc)
+          strcpy(psinegfile,argv[i+6]);
         //if(i+5<argc)
       //strcpy(inlatentfile,argv[i+5]);
         //else
    inlatentfile[0] = '\0';
-
-  parse_struct_parameters(sparm);
+   assert((psiposfile[0] != '\0') == (psinegfile[0] != '\0')); //either both or neither of psiposfile and psinegfile are given
+   if (psiposfile[0] != '\0') {
+     *log_psis = 1;
+   }
+   parse_struct_parameters(sparm);
 }

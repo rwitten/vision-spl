@@ -1,6 +1,6 @@
 # Makefile for Latent Structural SVM
 
-CC=gcc
+CC=gcc -Wall
 #CFLAGS= -g 
 #CFLAGS= -O3 -fomit-frame-pointer -ffast-math
 CFLAGS = -O0 -g
@@ -28,7 +28,7 @@ svm_bbox_classify: svm_struct_latent_classify.o svm_common.o svm_struct_latent_a
 	$(LD) $(LDFLAGS) svm_struct_latent_classify.o svm_common.o SFMT.o svm_struct_latent_api.o -o svm_bbox_classify $(LIBS)
 
 svm_struct_latent_spl.o: svm_struct_latent_spl.c
-	$(CC) -std=c99 -c $(CFLAGS) svm_struct_latent_spl.c -o svm_struct_latent_spl.o
+	$(CC) -c $(CFLAGS) svm_struct_latent_spl.c -o svm_struct_latent_spl.o
 
 svm_common.o: ./svm_light/svm_common.c ./svm_light/svm_common.h ./svm_light/kernel.h
 	$(CC) -c $(CFLAGS) ./svm_light/svm_common.c -o svm_common.o
