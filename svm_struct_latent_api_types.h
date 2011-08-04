@@ -26,10 +26,8 @@ typedef struct pattern {
   int example_id;
   char image_path[1000];
   double example_cost;
-  int width;
-  int height;
-  int bbox_width;
-  int bbox_height;
+  int width_pixel;
+  int height_pixel;
   int * descriptor_num_downs;
   int * descriptor_num_acrosses;
   int * descriptor_top_left_xs;
@@ -65,8 +63,10 @@ typedef struct latent_var {
   /*
     Type definition for latent variable h
   */
-  int position_x; /* starting position of object */
-	int position_y;
+  int position_x_pixel; /* starting position of object */
+	int position_y_pixel;
+	int bbox_width_pixel;
+	int bbox_height_pixel;
 } LATENT_VAR;
 
 typedef struct example {

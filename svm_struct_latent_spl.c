@@ -181,7 +181,7 @@ double current_obj_val(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CACH
   for (i=0;i<m;i++) {
 		if(!valid_examples[i])
 			continue;
-                find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, valid_example_kernels[i], sm, sparm);
+    find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, valid_example_kernels[i], sm, sparm);
     /* get difference vector */
     fy = copy_svector(fycache[i]);
     zero_svector_parts(valid_example_kernels[i], fy,sm);
@@ -1034,7 +1034,7 @@ int main(int argc, char* argv[]) {
 	/* self-paced learning variables */
 	double init_spl_weight;
 	double* spl_weight_pos;
-    double* spl_weight_neg;
+  double* spl_weight_neg;
 	double spl_factor;
 	int *valid_examples;
  
@@ -1054,7 +1054,8 @@ int main(int argc, char* argv[]) {
   alldata = read_struct_examples(trainfile, &sm, &sparm);
   int ntrain = (int) round(1.0*alldata.n); /* no validation set */
 	if(ntrain < alldata.n)
-	{
+	{	
+	 assert(0);
 	 srand(time(NULL));
  	 long *perm = randperm(alldata.n,alldata.n);
  	 sample = generate_train_set(alldata, perm, ntrain);
@@ -1068,13 +1069,14 @@ int main(int argc, char* argv[]) {
   ex = sample.examples;
   m = sample.n;
 
-  printf("m = %d\n", m);
+
 
   w = create_nvector(sm.sizePsi);
   clear_nvector(w, sm.sizePsi);
   sm.w = w; /* establish link to w, as long as w does not change pointer */
 
   /* some training information */
+  printf("m = %d\n", m);
   printf("C: %.8g\n", C);
 	printf("spl weight: %.8g\n",init_spl_weight);
   printf("epsilon: %.8g\n", epsilon);

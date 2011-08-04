@@ -23,6 +23,10 @@
 
 
 void read_input_parameters(int argc, char **argv, char *testfile, char *modelfile, char *labelfile, char *latentfile, char *inlatentfile, char *scorefile, STRUCT_LEARN_PARM *sparm);
+double get_hinge_l_from_pos_score(double pos_score, LABEL gt)
+{
+	return max(1 - 2*((double)gt.label-.5)*pos_score,0);
+}
 
 double regularizaton_cost(double* w, long num_entries)
 {
@@ -35,7 +39,7 @@ double regularizaton_cost(double* w, long num_entries)
 }
 
 int main(int argc, char* argv[]) {
-  double avghingeloss,avgloss,l,hinge_l;
+  double avghingeloss,avgloss,l;
   LABEL y;
   long i, correct;
   double weighted_correct;
@@ -63,7 +67,7 @@ int main(int argc, char* argv[]) {
   /* read input parameters */
   read_input_parameters(argc,argv,testfile,modelfile,labelfile,latentfile,inlatentfile,scorefile,&sparm);
 
-    //printf("%f\n",sparm.C);
+    printf("%f\n",sparm.C);
 	flabel = fopen(labelfile,"w");
 	flatent = fopen(latentfile,"w");
         fscore = fopen(scorefile, "w");
@@ -96,52 +100,31 @@ int main(int argc, char* argv[]) {
         //printf("%d %d\n",h.position_x,h.position_y);
     }
     //printf("%f\n",sparm.C);
-        double max_score_positive;
-        double score = classify_struct_example(testsample.examples[i].x,&y,&h,cached_images,&model,&sparm,impute,&max_score_positive);
-    l = loss(testsample.examples[i].y,y,h,&sparm);
-    if (l<.1) correct++;
-	if (l<.1) weighted_correct+=testsample.examples[i].x.example_cost;
+    double pos_score = classify_struct_example(testsample.examples[i].x,&y,&h,cached_images,&model,&sparm,impute);
 
-		print_label(y,flabel);
+
+		total_example_weight += testsample.examples[i].x.example_cost;
+		double hinge_l = get_hinge_l_from_pos_score(pos_score,testsample.examples[i].y);
+		printf("with a pos_score of %f, a label of %d we get a hinge_l of %f\n", pos_score, testsample.examples[i].y, hinge_l);
+    double weighted_hinge_l = hinge_l * testsample.examples[i].x.example_cost;
+    avghingeloss += weighted_hinge_l;
+  	if (hinge_l<1) {
+			correct++;
+			weighted_correct+=testsample.examples[i].x.example_cost;
+		}
+
+		LABEL guesslabel;
+		if(pos_score>0)
+			guesslabel.label=1;
+		else
+			guesslabel.label=0;
+		print_label(guesslabel,flabel);
 		fprintf(flabel,"\n"); fflush(flabel);
 
 		print_latent_var(testsample.examples[i].x, h,flatent);
-		fprintf(flatent,"\n"); fflush(flatent);
 
-                char * img_num_str = testsample.examples[i].x.image_path;
-//                img_num_str = strchr(img_num_str, (int)('/'));
-//                img_num_str++;
-//                img_num_str = strchr(img_num_str, (int)('/'));
-//                img_num_str++;
-                fprintf(fscore, "%s %f\n", img_num_str, max_score_positive); fflush(fscore);
-
-      LABEL ybar;
-      LATENT_VAR hbar;
-      SVECTOR *fy, *fybar;
-      testsample.examples[i].h.position_x = h.position_x;
-      testsample.examples[i].h.position_y = h.position_y;
-      find_most_violated_constraint_marginrescaling(testsample.examples[i].x,testsample.examples[i].h,testsample.examples[i].y,&ybar,&hbar,cached_images,valid_example_kernel,&model,&sparm);
-      fy = psi(testsample.examples[i].x,testsample.examples[i].y,testsample.examples[i].h,cached_images,valid_example_kernel,&model,&sparm);
-      fybar = psi(testsample.examples[i].x,ybar,hbar,cached_images,valid_example_kernel,&model,&sparm);
-    double lossval = loss(testsample.examples[i].y,ybar,hbar,&sparm);
-    hinge_l = (lossval+sprod_ns(model.w,fybar)-sprod_ns(model.w,fy));
-
-    /*double* total = malloc(sizeof(double) * (model.sizePsi+1));
-    int iter;
-    for(iter= 0 ; iter < model.sizePsi+1; iter++)
-        total[iter] = 1;
-    double l2norm = sqrt(sprod_ss(fy,fy));
-    double l1norm = sprod_ns(total, fy);
-    printf("feature l1norm %f l2norm %f\n", l1norm, l2norm);
-    l2norm = sqrt(sprod_ss(fybar,fybar));
-    l1norm = sprod_ns(total, fy);
-    free(total);
-    printf("feature other choice l1norm %f l2norm %f\n", l1norm, l2norm);
-    printf("hinge loss %f\n", hinge_l);*/
-
-    total_example_weight += testsample.examples[i].x.example_cost;
-    hinge_l*= testsample.examples[i].x.example_cost;
-    avghingeloss += hinge_l;
+     char * img_num_str = testsample.examples[i].x.image_path;
+     fprintf(fscore, "%s %f\n", img_num_str, pos_score); fflush(fscore);
 
     free_label(y);
     free_latent_var(h); 
@@ -154,7 +137,7 @@ int main(int argc, char* argv[]) {
   double w_cost = regularizaton_cost(model.w, model.sizePsi);
   avghingeloss =  avghingeloss/testsample.n;
   printf("\n");
-  printf("Objective Value %f %f\n\n\n", sparm.C, (sparm.C * avghingeloss) + w_cost);
+  printf("Objective Value with C=%f is %f\n\n\n", sparm.C, (sparm.C * avghingeloss) + w_cost);
   printf("Average hinge loss on dataset: %.4f\n", avghingeloss);
   printf("Zero/one error on test set: %.4f\n", 1.0 - ((float) correct)/testsample.n);
   printf("Weighted zero/one error on the test set %.4f\n", 	1.0 - (weighted_correct/total_example_weight));
