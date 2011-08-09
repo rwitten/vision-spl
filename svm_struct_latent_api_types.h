@@ -32,6 +32,11 @@ typedef struct pattern {
   int * descriptor_num_acrosses;
   int * descriptor_top_left_xs;
   int * descriptor_top_left_ys;
+
+	int gt_width_pixel;
+	int gt_height_pixel;
+	int gt_x_pixel;
+	int gt_y_pixel;
 } PATTERN;
 
 typedef struct point_and_descriptor {
@@ -84,6 +89,7 @@ typedef struct sample {
 typedef struct structmodel {
   double *w;          /* pointer to the learned weights */
   MODEL  *svm_model;  /* the learned SVM model */
+  long   sizeSinglePsi; 
   long   sizePsi;     /* maximum number of weights in w */
   /* other information that is needed for the stuctural model can be
      added here, e.g. the grammar rules for NLP parsing */
@@ -93,11 +99,7 @@ typedef struct structmodel {
   char ** kernel_names;
   int * descriptor_spacing_xs;
   int * descriptor_spacing_ys;
-  int bbox_width;
-  int bbox_height;
-  double bbox_scale;
-  int bbox_step_x;
-  int bbox_step_y;
+	int do_spm;
 } STRUCTMODEL;
 
 

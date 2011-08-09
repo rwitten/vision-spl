@@ -7,9 +7,9 @@ cd $base_dir
 
 for randomness in 1
 do
-	for classfold in 'car'
+	for classfold in 'small'
 	do
-		for l in 1
+		for l in 0 1
 		do
 			num_neg=`cat data/train.${classfold}_1.txt | grep ' 0 ' | wc -l`
 			num_pos=`cat data/train.${classfold}_1.txt | grep ' 1 ' | wc -l`
@@ -21,7 +21,7 @@ do
 			commands_test[2]=" --j $j "
 			commands_test[3]=" --j $j "
 			
-			for C in 2500 5000 10000
+			for C in 5000
 			do
 				for algorithm in  1
 				do

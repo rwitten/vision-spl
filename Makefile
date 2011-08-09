@@ -3,9 +3,9 @@
 CC=gcc -Wall
 #CFLAGS= -g 
 #CFLAGS= -O3 -fomit-frame-pointer -ffast-math
-CFLAGS = -O0 -g
+CFLAGS = -O3 -g
 LD=gcc
-LDFLAGS= -O0 -g
+LDFLAGS= -O3 -g
 #LDFLAGS= -O3
 #LDFLAGS = -O3 -pg
 LIBS= -lm

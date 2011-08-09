@@ -32,8 +32,8 @@
 
 
 #define ALPHA_THRESHOLD 1E-14
-#define IDLE_ITER 20
-#define CLEANUP_CHECK 50
+#define IDLE_ITER 200
+#define CLEANUP_CHECK 500
 #define STOP_PREC 1E-2
 #define UPDATE_BOUND 3
 #define MAX_CURRICULUM_ITER 10
@@ -125,7 +125,7 @@ double print_all_scores(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CAC
     find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, valid_example_kernels[i], sm, sparm);
     /* get difference vector */
     fy = copy_svector(fycache[i]);
-    zero_svector_parts(valid_example_kernels[i], fy,sm);
+    //zero_svector_parts(valid_example_kernels[i], fy,sm);
     fybar = psi(ex[i].x,ybar,hbar,cached_images,valid_example_kernels[i],sm,sparm);
     lossval = loss(ex[i].y,ybar,hbar,sparm);
     printf("%f\n",lossval+sprod_ns(sm->w,fybar)-sprod_ns(sm->w,fy));
@@ -184,7 +184,7 @@ double current_obj_val(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CACH
     find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, valid_example_kernels[i], sm, sparm);
     /* get difference vector */
     fy = copy_svector(fycache[i]);
-    zero_svector_parts(valid_example_kernels[i], fy,sm);
+    //zero_svector_parts(valid_example_kernels[i], fy,sm);
     fybar = psi(ex[i].x,ybar,hbar,cached_images,valid_example_kernels[i],sm,sparm);
     lossval = loss(ex[i].y,ybar,hbar,sparm);
 
@@ -363,7 +363,7 @@ SVECTOR* find_cutting_plane(EXAMPLE *ex, SVECTOR **fycache, double *margin, long
 
     /* get difference vector */
     fy = copy_svector(fycache[i]);
-    zero_svector_parts(valid_example_kernels[i], fy,sm);
+    //zero_svector_parts(valid_example_kernels[i], fy,sm);
     fybar = psi(ex[i].x,ybar_list[i],hbar_list[i],cached_images, valid_example_kernels[i],sm,sparm);
     lossval = loss(ex[i].y,ybar_list[i],hbar_list[i],sparm);
     free_label(ybar);
@@ -613,9 +613,10 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
   struct timeval finish_time;
   gettimeofday(&start_time, NULL);
 
-        new_constraint = find_cutting_plane(ex, fycache, &margin, m, cached_images, sm, sparm, valid_examples, valid_example_kernels);
+  new_constraint = find_cutting_plane(ex, fycache, &margin, m, cached_images, sm, sparm, valid_examples, valid_example_kernels);
  	value = margin - sprod_ns(w, new_constraint);
 	while((value>threshold+epsilon)&&(iter<MAX_ITER)) {
+		printf("We need to get %f less than %f\n", value, threshold+epsilon);
 		iter+=1;
 		size_active+=1;
 
@@ -820,7 +821,7 @@ int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPL
 	for (i=0;i<m;i++) {
 	  find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, kernel_choice, sm, sparm);
 		fy = copy_svector(fycache[i]);
-        zero_svector_parts(kernel_choice, fy, sm); 
+    //zero_svector_parts(kernel_choice, fy, sm); 
 		fybar = psi(ex[i].x,ybar,hbar,cached_images,kernel_choice,sm,sparm);
 		slack[i].index = i;
 		slack[i].val = loss(ex[i].y,ybar,hbar,sparm);
@@ -1004,26 +1005,6 @@ SAMPLE  generate_validation_set(SAMPLE alldata, long *perm, int ntrain)
   return val;
 }
 
-double compute_current_loss(SAMPLE val, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm)
-{
-	long i;
-	LABEL y;
-	LATENT_VAR h;
-	double cur_loss = 0.0;
-	double store;
-	for(i = 0; i < val.n; i++)
-	{
-          double max_positive_score;
-          LATENT_VAR argmax_h_positive;
-          classify_struct_example(val.examples[i].x,&y,&h,cached_images,sm,sparm,1,&max_positive_score,&argmax_h_positive);
-		store = loss(val.examples[i].y,y,h,sparm);
-		cur_loss += store;
-	}
-
-	cur_loss /= (double) val.n;
-	return cur_loss;
-}
-
 
 int main(int argc, char* argv[]) {
 
@@ -1096,7 +1077,7 @@ int main(int argc, char* argv[]) {
   sm.w = w; /* establish link to w, as long as w does not change pointer */
 
   /* some training information */
-  printf("m = %d\n", m);
+  printf("m = %ld\n", m);
   printf("C: %.8g\n", C);
 	printf("spl weight: %.8g\n",init_spl_weight);
   printf("epsilon: %.8g\n", epsilon);
@@ -1180,12 +1161,6 @@ int main(int argc, char* argv[]) {
   last_primal_obj = DBL_MAX;
   decrement = 0;
 
-  /* errors for validation set */
-
-  double cur_loss, best_loss = DBL_MAX;
-  int loss_iter=-1;
-
-
 	/* initializations */
 	int latent_update = 0;
 	FILE	*fexamples = fopen(examplesfile,"w");
@@ -1234,8 +1209,8 @@ int main(int argc, char* argv[]) {
 		    }  
             free(valid_kernels);
        }
-       printf("for negative examples spl weights are %.4f %.4f %.4f %.4f %.4f\n", spl_weight_neg[0], spl_weight_neg[1], spl_weight_neg[2], spl_weight_neg[3], spl_weight_neg[4]);
-       printf("for positive examples spl weights are %.4f %.4f %.4f %.4f %.4f\n", spl_weight_pos[0], spl_weight_pos[1], spl_weight_pos[2], spl_weight_pos[3], spl_weight_pos[4]);
+       printf("for negative examples spl weights are %.4f %.4f %.4f %.4f %.4f\n", spl_weight_neg[0], spl_weight_neg[1], spl_weight_neg[2], spl_weight_neg[3], spl_weight_neg[3]);
+       printf("for positive examples spl weights are %.4f %.4f %.4f %.4f %.4f\n", spl_weight_pos[0], spl_weight_pos[1], spl_weight_pos[2], spl_weight_pos[3], spl_weight_pos[3]);
     printf("\n\n\nOUTER ITER %d here \n\n\n", outer_iter); 
     /* cutting plane algorithm */
 
@@ -1301,29 +1276,22 @@ int main(int argc, char* argv[]) {
       fy = diff;
       fycache[i] = fy;
     }
-        primal_obj = current_obj_val(ex, fycache, m, cached_images, &sm, &sparm, C, allon_examples, allon_example_kernels);
-        printf("primal object (AFTER IMPUTATION): %f\n", primal_obj);
+		printf("computing new objective value\n"); fflush(stdout);
+    primal_obj = current_obj_val(ex, fycache, m, cached_images, &sm, &sparm, C, allon_examples, allon_example_kernels);
+    printf("primal object (AFTER IMPUTATION): %f\n", primal_obj);
 		sprintf(itermodelfile,"%s.%04d",modelfile,outer_iter);
 		write_struct_model(itermodelfile, &sm, &sparm);
-
-		if(ntrain < alldata.n) {
-		        cur_loss = compute_current_loss(val,cached_images,&sm,&sparm);
-			if(cur_loss <= best_loss) {
-				best_loss = cur_loss;
-				loss_iter = outer_iter;
-			}
-			printf("CURRENT LOSS: %f\n",cur_loss);
-			printf("BEST LOSS: %f\n",best_loss);
-			printf("LOSS ITER: %d\n",loss_iter);
-		}
 
     outer_iter++;
         for(i=0;i<sm.num_kernels;i++) {
             printf("!!!!!!!!!!!!!!!!!!! %f\n", spl_factor);
-    		spl_weight_pos[i] += spl_factor;
-            spl_weight_neg[i] += spl_factor;
-            spl_weight_pos[i] = (spl_weight_pos[i]>1) ? 1 : spl_weight_pos[i];
-            spl_weight_neg[i] = (spl_weight_neg[i]>1) ? 1:spl_weight_neg[i];
+						if(init_spl_weight)
+						{
+							spl_weight_pos[i] += spl_factor;
+							spl_weight_neg[i] += spl_factor;
+							spl_weight_pos[i] = (spl_weight_pos[i]>1) ? 1 : spl_weight_pos[i];
+							spl_weight_neg[i] = (spl_weight_neg[i]>1) ? 1:spl_weight_neg[i];
+						}
         }
   } // end outer loop
 	fclose(fexamples);
@@ -1367,11 +1335,6 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
 	char filestub[1024];
 
   /* set default */
-  sm->bbox_width = 50;
-  sm->bbox_height = 50;
-  sm->bbox_scale = 1.0;
-  sm->bbox_step_x = 10;
-  sm->bbox_step_y = 10;
   struct_parm->pos_neg_cost_ratio = 1.0;
   learn_parm->maxiter=20000;
   learn_parm->svm_maxqpsize=100;
@@ -1406,7 +1369,7 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
     case 'n': i++; learn_parm->maxiter=atol(argv[i]); break;
     case 'p': i++; learn_parm->remove_inconsistent=atol(argv[i]); break; 
     case 'z': i++; struct_parm->multi_kernel_spl = atol(argv[i]); break;
-    case 'l': i++; sm->bbox_scale = atof(argv[i]); break;
+    case 'l': i++; sm->do_spm = atof(argv[i]); break;
 		case 'k': i++; *init_spl_weight = atof(argv[i]); break;
 		case 'm': i++; *spl_factor = atof(argv[i]); break;
 		case 'o': i++; struct_parm->optimizer_type = atoi(argv[i]); break;
@@ -1497,10 +1460,6 @@ int resize_cleanup(int size_active, int **ptr_idle, double **ptr_alpha, double *
     while((j<size_active)&&(idle[j]>=IDLE_ITER)) j++;
   }
 
-if (new_mv_iter == -1) { //Check to make sure it's been set
-	printf("CAUTION: in resize_cleanup(), new_mv_iter hasn't been reset to anything!  It used to be uninitialized, so something could've been fucked up!\n");
-	assert(0);
-}
 
   for (k=i;k<size_active;k++) {
 		if (G[k]!=NULL) free(G[k]);

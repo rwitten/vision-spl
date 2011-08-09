@@ -23,7 +23,8 @@
 #define max(x,y) ( ((x)>(y)) ? (x) : (y))
 
 
-void read_input_parameters(int argc, char **argv, char *testfile, char *modelfile, char *labelfile, char *latentfile, char *inlatentfile, char *scorefile, STRUCT_LEARN_PARM *sparm);
+void read_input_parameters(int argc, char **argv, char *testfile, char *modelfile, char *labelfile, char *latentfile, char *inlatentfile, char *scorefile, char *psiposfile, char *psinegfile, int *log_psis, STRUCT_LEARN_PARM *sparm);
+
 double get_hinge_l_from_pos_score(double pos_score, LABEL gt)
 {
 	return max(1 - 2*((double)gt.label-.5)*pos_score,0);
@@ -40,7 +41,7 @@ double regularizaton_cost(double* w, long num_entries)
 }
 
 int main(int argc, char* argv[]) {
-  double avghingeloss,avgloss,l;
+  double avghingeloss;
   LABEL y;
   long i, correct;
   int log_psis;
@@ -116,7 +117,7 @@ int main(int argc, char* argv[]) {
 
 		total_example_weight += testsample.examples[i].x.example_cost;
 		double hinge_l = get_hinge_l_from_pos_score(pos_score,testsample.examples[i].y);
-		printf("with a pos_score of %f, a label of %d we get a hinge_l of %f\n", pos_score, testsample.examples[i].y, hinge_l);
+		printf("with a pos_score of %f, a label of %d we get a hinge_l of %f\n", pos_score, testsample.examples[i].y.label, hinge_l);
     double weighted_hinge_l = hinge_l * testsample.examples[i].x.example_cost;
     avghingeloss += weighted_hinge_l;
   	if (hinge_l<1) {
