@@ -7,29 +7,29 @@ cd $base_dir
 
 for randomness in 1
 do
-	for classfold in 'small'
+	for classfold in 'verysmall'
 	do
-		for l in 0 1
+		for l in 0
 		do
 			num_neg=`cat data/train.${classfold}_1.txt | grep ' 0 ' | wc -l`
 			num_pos=`cat data/train.${classfold}_1.txt | grep ' 1 ' | wc -l`
 			j=`echo $num_neg $num_pos | awk '{print $1/$2;}'`	
-			commands[1]=" --j $j -l $l "
-			commands[2]=" --j $j -l $l -m .1 -k 50 "
-			commands[3]=" --j $j -l $l -m .1 -k 50 -z 1 "
-			commands_test[1]=" --j $j "
-			commands_test[2]=" --j $j "
-			commands_test[3]=" --j $j "
+			commands[1]=" --j $j --l $l "
+			commands[2]=" --j $j --l $l -m .1 -k 50 "
+			commands[3]=" --j $j --l $l -m .1 -k 50 -z 1 "
+			commands_test[1]=" --j $j --l $l "
+			commands_test[2]=" --j $j --l $l "
+			commands_test[3]=" --j $j --l $l "
 			
-			for C in 5000
+			for C in 500
 			do
 				for algorithm in  1
 				do
-					for foldnum in 1 2
+					for foldnum in 1
 					do
 						fold=${classfold}_${foldnum}
-						if [  -f ./output/${names[$algorithm]}${C}_${l}_${fold}_$randomness.model ]; then
-							echo "Skipping " ./output/${names[$algorithm]}${C}_${l}_${fold}_$randomness.model
+						if [  -f ./output/${names[$algorithm]}${C}_${l}_${fold}_$randomness.starttime ]; then
+							echo "Skipping " ./output/${names[$algorithm]}${C}_${l}_${fold}_$randomness
 							continue
 						fi
 						command_starttimestamp="date > ./output/${names[$algorithm]}${C}_${l}_${fold}_$randomness.starttime"
@@ -51,8 +51,8 @@ do
 						echo $command_train_matlab >> $script_name
 						echo $command_endtimestamp >> $script_name
 						chmod +x $script_name
-						echo "Posting job " ${base_dir}/${script_name}
-						~/bin/appendJob.pl ${base_dir}/${script_name}
+#						echo "Posting job " ${base_dir}/${script_name}
+#						~/bin/appendJob.pl ${base_dir}/${script_name}
 					done
 				done
 			done

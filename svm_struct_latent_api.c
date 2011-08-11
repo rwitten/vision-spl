@@ -26,17 +26,18 @@
 #define MAX_INPUT_LINE_LENGTH 10000
 #define DELTA 1
 #define BASE_DIR "/afs/cs.stanford.edu/u/rwitten/scratch/mkl_features/"
-//#define BASE_DIR "/afs/cs.stanford.edu/u/rwitten/scratch/temp/spm/data/"
+#define SCRATCH_OUT "/afs/cs.stanford.edu/u/rwitten/scratch/mkl_scratch/"
+#define CATTED_FEATURES_DIR "/afs/cs.stanford.edu/u/rwitten/scratch/mkl_catted_features/data/"
 #define CONST_FILENAME_PART "_spquantized_1000_"
 #define CONST_FILENAME_SUFFIX ".mat"
 
 #define BASE_HEIGHT 75
 #define BASE_WIDTH 125
-#define X_STEP 10
-#define Y_STEP 10
+#define X_STEP 50
+#define Y_STEP 50
 #define NUM_WINDOWS 5
 
-#define SCALE_FACTOR 1.15
+#define SCALE_FACTOR 1.5
 
 int pad_cmp(const void * a, const void * b) {
   POINT_AND_DESCRIPTOR * pad_a = (POINT_AND_DESCRIPTOR *)a;
@@ -53,7 +54,7 @@ int pad_cmp(const void * a, const void * b) {
 int get_sample_size(char * file) {
   int sample_size;
   FILE * fp = fopen(file, "r");
-  fscanf(fp, "%d\n", &sample_size);
+	fscanf(fp, "%d\n", &sample_size);
   fclose(fp);
   return sample_size;
 }
@@ -287,7 +288,6 @@ FILE * open_kernelized_image_file(PATTERN x, int kernel_ind, STRUCTMODEL * sm) {
   strcat(file_path, CONST_FILENAME_PART);
   strcat(file_path, sm->kernel_names[kernel_ind]);
   strcat(file_path, CONST_FILENAME_SUFFIX);
-	printf("opening %s\n", file_path);
   FILE * fp = fopen(file_path, "r");
   assert(fp != NULL);
   return fp;
@@ -440,74 +440,18 @@ int min(int a, int b) {
   return b;
 }
 
-void fill_max_pool(PATTERN x, LATENT_VAR h, int kernel_ind, IMAGE_KERNEL_CACHE ** cached_images, WORD * words, int descriptor_offset, int * num_words, STRUCTMODEL * sm) {
-  //if (use_prev_descriptor_counts) {
-  //  int prev_bbox_start_x = pixel_coord_to_descriptor_coord(cur_bbox_start_x_pixel - sm->bbox_step_x, x.descriptor_top_left_xs[kernel_ind], sm->descriptor_spacing_xs[kernel_ind]);
-  //  int prev_bbox_end_x = pixel_coord_to_descriptor_coord(cur_bbox_start_x_pixel + x.bbox_width - sm->bbox_step_x, x.descriptor_top_left_xs[kernel_ind], sm->descriptor_spacing_xs[kernel_ind]);
-  //  prev_bbox_start_x = min(prev_bbox_start_x, x.descriptor_num_acrosses[kernel_ind]);
-  //  prev_bbox_end_x = min(prev_bbox_start_x, x.descriptor_num_acrosses[kernel_ind]);
-  //  struct timeval start_time;
-  //  struct timeval finish_time;
-  //  gettimeofday(&start_time, NULL);
-  //  int l;
-    //for (l = 0; l < 1000; ++l) {
-  //  assert(0);
-  //    get_descriptor_counts(points_and_descriptors, prev_bbox_end_x, prev_bbox_start_x, bbox_start_y, bbox_start_y, cur_bbox_end_x - prev_bbox_end_x, cur_bbox_start_x - prev_bbox_start_x, bbox_end_y - bbox_start_y, bbox_end_y - bbox_start_y, x.descriptor_num_downs[kernel_ind], descriptor_counts, kernel_ind, sm);
-      //}
-  //  gettimeofday(&finish_time, NULL);
-  //  int million = 1000000;
-  //  int microseconds = million * (int)(finish_time.tv_sec - start_time.tv_sec) + (int)(finish_time.tv_usec - start_time.tv_usec);
-    //printf("get_descriptor_counts() takes %f microseconds.\n", microseconds / 1000.0);
-  //} else {
-    //struct timeval start_time;
-    //struct timeval finish_time;
-    //gettimeofday(&start_time, NULL);
-    //for (l = 0; l < 1000; ++l) {
+void fill_max_pool(PATTERN x, LATENT_VAR h, int kernel_ind, IMAGE_KERNEL_CACHE ** cached_images, WORD* words, int descriptor_offset, int * num_words, STRUCTMODEL * sm) {
 		POINT_AND_DESCRIPTOR * points_and_descriptors = cached_images[x.example_id][kernel_ind].points_and_descriptors;
 		int x1 = pixel_coord_to_descriptor_coord(h.position_x_pixel, x.descriptor_top_left_xs[kernel_ind], sm->descriptor_spacing_xs[kernel_ind]);
 		int x2 = pixel_coord_to_descriptor_coord(h.position_x_pixel+h.bbox_width_pixel, x.descriptor_top_left_xs[kernel_ind], sm->descriptor_spacing_xs[kernel_ind]);
 		int y1 = pixel_coord_to_descriptor_coord(h.position_y_pixel, x.descriptor_top_left_ys[kernel_ind], sm->descriptor_spacing_ys[kernel_ind]);
 		int y2 = pixel_coord_to_descriptor_coord(h.position_y_pixel+h.bbox_height_pixel, x.descriptor_top_left_ys[kernel_ind], sm->descriptor_spacing_ys[kernel_ind]);
 	
-		//printf("%d %d %d %d %d %d\n", x1, x2, x.descriptor_num_acrosses[kernel_ind],y1,y2,x.descriptor_num_downs[kernel_ind]);
-		//print_latent_var(x,h,NULL);
-		//printf("\n");
-		//if(!sm->do_spm)
-		//{
-		//	assert(y1 < x.descriptor_num_downs[kernel_ind]);
-		//	assert(x1 < x.descriptor_num_acrosses[kernel_ind]);
-		//}
-
 		y2 = min(y2, x.descriptor_num_downs[kernel_ind]);
 		x2 = min(x2, x.descriptor_num_acrosses[kernel_ind]);
 	
-		//if(((y2 == y1)	|| (x2==x1)) && !sm->do_spm)
-		//{
-		//	assert(0);	
-		//}
-    do_max_pooling(points_and_descriptors, x1,y1,x2-x1,y2-y1, x.descriptor_num_downs[kernel_ind], kernel_ind, words, descriptor_offset, num_words, sm);
+    do_max_pooling(points_and_descriptors, x1,y1,x2-x1,y2-y1, x.descriptor_num_downs[kernel_ind], kernel_ind, words, descriptor_offset, num_words, sm); 
 }
-
-//void get_descriptor_counts(POINT_AND_DESCRIPTOR * points_and_descriptors, int add_start_x, int subtract_start_x, int add_start_y, int subtract_start_y, int add_num_across, int subtract_num_across, int add_num_down, int subtract_num_down, int total_num_down, int * descriptor_counts, int kernel_ind, STRUCTMODEL * sm) {
-//  int x, y, descriptor;
-  //printf("total_num_down = %d\n", total_num_down);
-  //printf("add_num_across = %d\n", add_num_across);
-  //printf("add_num_down = %d\n", add_num_down);
-  //printf("subtract_num_across = %d\n", subtract_num_across);
-  //printf("subtract_num_down = %d\n", subtract_num_down);
-//  for (x = 0; x < add_num_across; ++x) {
-//    for (y = 0; y < add_num_down; ++y) {
-//      descriptor = points_and_descriptors[total_num_down * (x + add_start_x) + (y + add_start_y)].descriptor;
-//      descriptor_counts[descriptor - 1] += 1;
-//    }
-//  }
-//  for (x = 0; x < subtract_num_across; ++x) {
-//    for (y = 0; y < subtract_num_down; ++y) {
-//      descriptor = points_and_descriptors[total_num_down * (x + subtract_start_x) + (y + subtract_start_y)].descriptor;
-//      descriptor_counts[descriptor - 1] -= 1;
-//    }
-//  }
-//}
 
 int word_cmp(const void * a, const void * b) {
        WORD * word_a = (WORD *)a;
@@ -515,28 +459,27 @@ int word_cmp(const void * a, const void * b) {
        return word_a->wnum - word_b->wnum;
 }
 
-void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, int start_x, int start_y, int num_across, int num_down, int total_num_down, int kernel_ind, WORD * words, int descriptor_offset, int * num_words, STRUCTMODEL * sm) {
-  int x, y, descriptor,l;
-  int init_num_words = *num_words;
-	double sum = 0.0;
-  char * max_pool = calloc(sm->kernel_sizes[kernel_ind], sizeof(char));
+void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, int start_x, int start_y, int num_across, int num_down, int total_num_down, int kernel_ind, WORD* words, int descriptor_offset, int * num_words, STRUCTMODEL * sm) {
+	int x, y, descriptor;
+	int init_num_words = *num_words;
+  int * locations = (int*)calloc(sm->kernel_sizes[kernel_ind], sizeof(int));
   for (x = 0; x < num_across; ++x) {
     for (y = 0; y < num_down; ++y) {
       descriptor = points_and_descriptors[total_num_down * (x + start_x) + (y + start_y)].descriptor;
-      if (max_pool[descriptor - 1] == '\0') {
-				max_pool[descriptor - 1] = (char)0xff;
-				words[*num_words].wnum = descriptor - 1 + descriptor_offset;
+      if (locations[descriptor-1] == 0) {
+			  locations[descriptor - 1] = (*num_words);
+				words[*num_words].wnum = descriptor -1 +descriptor_offset;
 				words[*num_words].weight = 1.0;
-				sum += 1.0;
-				(*num_words)++;
-      }
+				*num_words=*num_words+1;
+			}
+			else
+			{
+				words[locations[descriptor-1]].weight += 1.0;
+			}
     }
   }
-  for (l = init_num_words; l < *num_words; ++l) {
-    words[l].weight /= sum;
-  }
-  qsort(&(words[init_num_words]), *num_words - init_num_words, sizeof(WORD), word_cmp);
-  free(max_pool);
+	qsort(&(words[init_num_words]), *num_words - init_num_words, sizeof(WORD), word_cmp);
+	free(locations);
 }
 
 /*void zero_svector_parts(int * valid_kernels, SVECTOR * fvec, STRUCTMODEL * sm) {
@@ -577,19 +520,17 @@ SVECTOR* single_psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cach
   if (y.label) {
     int num_words = 0;
     WORD * words = (WORD *)calloc(sm->sizePsi + 1, sizeof(WORD));
-    double * max_pool = (double *)calloc(sm->sizePsi + 1, sizeof(double));
-    int k;
+		int k;
     int start_ind = cutoff+1;
     for (k = 0; k < sm->num_kernels; ++k) {
-      if (valid_kernels[k]) { 
+      if (valid_kernels[k]) {
         fill_max_pool(x, h, k, cached_images, words, start_ind, &num_words, sm);
       }
       start_ind += sm->kernel_sizes[k];
     }
-    words[num_words].wnum = 0;
+		words[num_words].wnum = 0;
     words = (WORD *)realloc(words, (num_words + 1) * sizeof(WORD));
-    fvec = create_svector_shallow(words, strdup(""), 1.0);
-    free(max_pool);
+		fvec = create_svector_shallow(words, strdup(""), 1.0);
     return fvec;
   } else {
     WORD * words = (WORD *)calloc(1, sizeof(WORD));
@@ -598,11 +539,25 @@ SVECTOR* single_psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cach
   }
 }
 
-LATENT_VAR choose_subset(LATENT_VAR h, int subset, STRUCTMODEL* sm)
+LATENT_VAR choose_subset(LATENT_VAR h, int subset,  STRUCT_LEARN_PARM *sparm)
 {
-	if(!sm->do_spm)
-		return h;
+	if( (!sparm->do_spm))
+	{
+		if(subset == 0)
+			return h;
+		else 
+		{
+			LATENT_VAR h_out;
+			h_out.position_x_pixel = 0;
+			h_out.position_y_pixel = 0;
+			h_out.bbox_width_pixel = 0;
+			h_out.bbox_height_pixel = 0;
+			return h_out;	
+		}
+			
+	}
 
+	//DOING SPM
 	LATENT_VAR h_out;
 	if(subset == 0)
 	{
@@ -653,10 +608,10 @@ SVECTOR* psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cached_imag
 	SVECTOR* fvec;
   //binary labelling for now - 1 means there's a car, 0 means there's no car
   if (y.label) {
-		fvec = single_psi(x,y,choose_subset(h,0,sm),cached_images,valid_kernels,sm,sparm,0);
+		fvec = single_psi(x,y,choose_subset(h,0,sparm),cached_images,valid_kernels,sm,sparm,0);
 		for(subset = 1; subset<NUM_WINDOWS; subset++)
 		{
-			SVECTOR* addl_part = single_psi(x,y,choose_subset(h,subset,sm),cached_images,valid_kernels,sm,sparm,sm->sizeSinglePsi*subset);
+			SVECTOR* addl_part = single_psi(x,y,choose_subset(h,subset,sparm),cached_images,valid_kernels,sm,sparm,sm->sizeSinglePsi*subset);
 			SVECTOR* newfvec = add_ss(fvec,addl_part);
 			free_svector(addl_part);
 			free_svector(fvec);
@@ -670,11 +625,21 @@ SVECTOR* psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cached_imag
   }
 }
 
-double compute_w_T_psi(PATTERN *x, LATENT_VAR h, int class, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm) {
+double compute_w_T_psi(PATTERN *x, LATENT_VAR h, int classi, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm) {
   double w_T_psi;
   LABEL y;
-  y.label = class;
+  y.label = classi;
   SVECTOR * psi_vect = psi(*x, y, h, cached_images, valid_kernels, sm, sparm);
+	int curr = 0;
+	int max_so_far = -1;
+	while(psi_vect->words[curr].wnum !=0)
+	{
+		if(psi_vect->words[curr].wnum<max_so_far)
+			assert(0);
+		else
+			max_so_far = psi_vect->words[curr].wnum;
+		curr++;
+	}
   w_T_psi = sprod_ns(sm->w, psi_vect);
   free_svector(psi_vect);
   return w_T_psi;
@@ -691,41 +656,55 @@ void try_new_latent(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cached_images,int* v
 	}	
 }
 
-void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cached_images,int* valid_kernels,STRUCTMODEL* sm,STRUCT_LEARN_PARM* sparm,double* max_score,LATENT_VAR* h_best,LABEL* y_best,LABEL y_curr)
+void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cached_images,int* valid_kernels,STRUCTMODEL* sm,STRUCT_LEARN_PARM* sparm,double* max_score,LATENT_VAR* h_best,LABEL* y_best,LABEL y_curr, char* modelfile)
 {
 	double loss = (y.label==y_curr.label)? 0:1;
-	LATENT_VAR h_curr;
-	
-	int y_length_pixel = BASE_HEIGHT;
-	int x_length_pixel = BASE_WIDTH;
 
-	int numoptions=0;	
-	while(y_length_pixel<x.height_pixel && x_length_pixel<x.width_pixel)
+	struct timeval start_time;
+	struct timeval finish_time;
+	gettimeofday(&start_time, NULL);
+
+	char* output_file =(char*) malloc(sizeof(char)*1024); // randomly generate this at run time.
+	sprintf(output_file,"%s/%ld", SCRATCH_OUT, 4319116627913978506);//gen_rand64());
+
+	char* command = (char*)malloc(sizeof(char)*1024);
+	sprintf(command,"./ess %d %d %s %s%s_quant.txt > %s", x.height_pixel, x.width_pixel, modelfile,CATTED_FEATURES_DIR,x.image_path,output_file); 
+	//system(command);
+
+	LATENT_VAR h_curr;
+	double essscore;
+	FILE* reader = fopen(output_file, "r");
+	fscanf(reader,"%lf %d %d %d %d\n",&essscore, &h_curr.position_y_pixel, &h_curr.position_x_pixel, &h_curr.bbox_height_pixel, &h_curr.bbox_width_pixel);
+	fclose(reader);
+	
+	h_curr.bbox_width_pixel = h_curr.bbox_width_pixel - h_curr.position_x_pixel;
+	h_curr.bbox_height_pixel = h_curr.bbox_height_pixel - h_curr.position_y_pixel;
+	
+	double score = loss + compute_w_T_psi(&x,h_curr,y_curr.label,cached_images,valid_kernels,sm, sparm);
+	printf("this found a bbox of value %lf with lossless score of %lf \n", essscore, score-loss);
+	
+	if(score > *max_score)
 	{
-		int numoptions_at_scale =0;
-		int x_pos_pixel; int y_pos_pixel;
-		for(x_pos_pixel=0; x_pos_pixel+x_length_pixel<x.width_pixel; x_pos_pixel += X_STEP)
-		{
-			for(y_pos_pixel=0; y_pos_pixel+y_length_pixel<x.height_pixel; y_pos_pixel += Y_STEP)
-			{
-				numoptions++;
-				numoptions_at_scale++;
-				h_curr.position_x_pixel = x_pos_pixel;
-				h_curr.position_y_pixel = y_pos_pixel;
-				h_curr.bbox_width_pixel = x_length_pixel;
-				h_curr.bbox_height_pixel = y_length_pixel;
-				try_new_latent(x,y,cached_images, valid_kernels, sm, sparm, max_score, h_best, y_best, y_curr, h_curr, loss);
-			}
-		}
-		y_length_pixel *= SCALE_FACTOR;
-		x_length_pixel *= SCALE_FACTOR;
+		*max_score=score;
+		*h_best = h_curr;
+		*y_best = y_curr;
 	}
+
+	sprintf(command,"rm %s", output_file);
+	//system(command);
+	free(command);
+	free(output_file);
+
+	gettimeofday(&finish_time, NULL);
+	double microseconds = 1e6 * (int)(finish_time.tv_sec - start_time.tv_sec) + (int)(finish_time.tv_usec - start_time.tv_usec);
+	printf("Microseconds elapsed %lf\n", microseconds);
 }
 
-double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int impute) {
+
+
+double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int impute, char* modelfile) {
 /*
   Makes prediction with input pattern x with weight vector in sm->w,
-  i.e., computing argmax_{(y,h)} <w,psi(x,y,h)>. 
   Output pair (y,h) are stored at location pointed to by 
   pointers *y and *h. 
 */
@@ -736,22 +715,23 @@ double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_
 	double max_score;
 	max_score = -DBL_MAX;
 
-	int * valid_kernels = calloc(sm->num_kernels, sizeof(int));
+	int * valid_kernels = (int*)calloc(sm->num_kernels, sizeof(int));
 	
 	for (l = 0; l < sm->num_kernels; ++l) {
 		valid_kernels[l] = 1;
 	}
-
+	
+	LABEL y_curr;
+	y_curr.label=1;
 	for(cur_class = 0; cur_class<sparm->n_classes; cur_class++)
 	{
+		
 		if(cur_class>0)
 		{
-			LABEL y_curr;
-			y_curr.label=cur_class;
-			compute_highest_scoring_latents(x,y_curr,cached_images,valid_kernels,sm,sparm,&max_score,h,y,y_curr);
+	   	y_curr.label=cur_class;
+			compute_highest_scoring_latents(x,y_curr,cached_images,valid_kernels,sm,sparm,&max_score,h,y,y_curr, modelfile);
 		}
 	}
-	
   free(valid_kernels);
 	return max_score;
 }
@@ -762,7 +742,7 @@ void initialize_most_violated_constraint_search(PATTERN x, LATENT_VAR hstar, LAB
   *max_score = compute_w_T_psi(&x, *hbar, ybar->label, cached_images, valid_kernels, sm, sparm);
 }
 
-void find_most_violated_constraint_marginrescaling(PATTERN x, LATENT_VAR hstar, LABEL y, LABEL *ybar, LATENT_VAR *hbar, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm) {
+void find_most_violated_constraint_marginrescaling(PATTERN x, LATENT_VAR hstar, LABEL y, LABEL *ybar, LATENT_VAR *hbar, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, char* modelfile) {
 /*
   Finds the most violated constraint (loss-augmented inference), i.e.,
   computing argmax_{(ybar,hbar)} [<w,psi(x,ybar,hbar)> + loss(y,ybar,hbar)].
@@ -785,7 +765,7 @@ void find_most_violated_constraint_marginrescaling(PATTERN x, LATENT_VAR hstar, 
 		y_curr.label = cur_class;
 		if(cur_class != y.label)
 		{
-			compute_highest_scoring_latents(x,y,cached_images,valid_kernels,sm,sparm,&max_score,hbar,ybar,y_curr);
+			compute_highest_scoring_latents(x,y,cached_images,valid_kernels,sm,sparm,&max_score,hbar,ybar,y_curr,modelfile);
 		}
 	}
 	return;
@@ -833,7 +813,6 @@ LATENT_VAR infer_latent_variables(PATTERN x, LABEL y, IMAGE_KERNEL_CACHE ** cach
   //time_t start_time = time(NULL);
 
   LATENT_VAR h;
-	double MAX_SCORE_ATTAINED = -DBL_MAX;
   if (y.label == 0) {
 		h.position_x_pixel = 0;
 		h.position_y_pixel = 0;
@@ -846,12 +825,13 @@ LATENT_VAR infer_latent_variables(PATTERN x, LABEL y, IMAGE_KERNEL_CACHE ** cach
 		assert(y.label==1);
 		h.position_x_pixel = x.gt_x_pixel;
 		h.position_y_pixel = x.gt_y_pixel;
-		h.bbox_width_pixel = x.gt_width_pixel; //So bounding boxes don't get too small
+		h.bbox_width_pixel = x.gt_width_pixel; 
 		h.bbox_height_pixel = x.gt_height_pixel;
 
     return h;
 	}
 
+/*	double MAX_SCORE_ATTAINED = -DBL_MAX;
 	int * valid_kernels = calloc(sm->num_kernels, sizeof(int));
 	int l;
 	for ( l = 0; l < sm->num_kernels; ++l) {
@@ -863,7 +843,7 @@ LATENT_VAR infer_latent_variables(PATTERN x, LABEL y, IMAGE_KERNEL_CACHE ** cach
 
 	assert(garbage.label==y.label);
 
-  return(h); 
+  return(h); */
 }
 
 
@@ -991,14 +971,27 @@ void parse_struct_parameters(STRUCT_LEARN_PARM *sparm) {
   for (i=0;(i<sparm->custom_argc)&&((sparm->custom_argv[i])[0]=='-');i++) {
     switch ((sparm->custom_argv[i])[2]) {
       /* your code here */
+		case 'a' : i++; sparm->modelfile = sparm->custom_argv[i]; break;
     case 'j' : i++; sparm->pos_neg_cost_ratio = atof(sparm->custom_argv[i]); break;
     case 'c' : i++; sparm->C = atof(sparm->custom_argv[i]); break;
-      case 's': i++; sparm->rng_seed = atoi(sparm->custom_argv[i]); break;
-      case 'n': i++; sparm->n_classes = atoi(sparm->custom_argv[i]); break;
-      case 't': i++; sparm->margin_type = atoi(sparm->custom_argv[i]); break;
-      default: printf("\nUnrecognized option %s!\n\n", sparm->custom_argv[i]); exit(0);
+    case 's': i++; sparm->rng_seed = atoi(sparm->custom_argv[i]); break;
+    case 'n': i++; sparm->n_classes = atoi(sparm->custom_argv[i]); break;
+    case 't': i++; sparm->margin_type = atoi(sparm->custom_argv[i]); break;
+		case 'l': i++; sparm->do_spm = atoi(sparm->custom_argv[i]); break;
+    default: printf("\nUnrecognized option %s!\n\n", sparm->custom_argv[i]); exit(0);
     }
   }
+}
+
+void writeModelToDisk(char* modelfile, double* w, int num_entries)
+{
+	int i;
+	FILE* target = fopen(modelfile, "w");
+	for(i=0;i<num_entries;i++)
+	{
+		fprintf(target, "%lf\n", w[i]);
+	}
+	fclose(target);
 }
 
 void copy_label(LABEL l1, LABEL *l2)

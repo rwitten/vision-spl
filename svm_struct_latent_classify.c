@@ -112,7 +112,8 @@ int main(int argc, char* argv[]) {
         //printf("%d %d\n",h.position_x,h.position_y);
     }
     //printf("%f\n",sparm.C);
-    double pos_score = classify_struct_example(testsample.examples[i].x,&y,&h,cached_images,&model,&sparm,impute);
+
+    double pos_score = classify_struct_example(testsample.examples[i].x,&y,&h,cached_images,&model,&sparm,impute, sparm.modelfile);
 
 
 		total_example_weight += testsample.examples[i].x.example_cost;

@@ -22,10 +22,10 @@ FILE * open_kernelized_image_file(PATTERN x, int kernel_ind, STRUCTMODEL * sm);
 void fill_image_kernel_cache(PATTERN x, int kernel_ind, IMAGE_KERNEL_CACHE * ikc, STRUCTMODEL * sm);
 void try_cache_image(PATTERN x, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL * sm);
 SVECTOR *psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cached_images, int* valid_kernels,STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
-double compute_w_T_psi(PATTERN *x, LATENT_VAR h, int class, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
-double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int impute);
+double compute_w_T_psi(PATTERN *x, LATENT_VAR h, int classi, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
+double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int impute,char* modelfile);
 void initialize_most_violated_constraint_search(PATTERN x, LATENT_VAR hstar, LABEL y, LABEL *ybar, LATENT_VAR *hbar, double * max_score, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
-void find_most_violated_constraint_marginrescaling(PATTERN x, LATENT_VAR hstar, LABEL y, LABEL *ybar, LATENT_VAR *hbar, IMAGE_KERNEL_CACHE ** cached_images, int* valid_kernels,STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
+void find_most_violated_constraint_marginrescaling(PATTERN x, LATENT_VAR hstar, LABEL y, LABEL *ybar, LATENT_VAR *hbar, IMAGE_KERNEL_CACHE ** cached_images, int* valid_kernels,STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm,char* modelfile);
 void find_most_violated_constraint_differenty(PATTERN x, LATENT_VAR hstar, LABEL y, LABEL *ybar, LATENT_VAR *hbar, IMAGE_KERNEL_CACHE ** cached_images, int* valid_kernels,STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
 LATENT_VAR infer_latent_variables(PATTERN x, LABEL y, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
 void log_psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, FILE * fp, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
@@ -44,7 +44,7 @@ void copy_latent_var(LATENT_VAR lv1, LATENT_VAR *lv2);
 void print_latent_var(PATTERN x, LATENT_VAR h, FILE *flatent);
 void read_latent_var(LATENT_VAR *h, FILE *finlatent);
 void print_label(LABEL l, FILE	*flabel);
-void fill_max_pool(PATTERN x, LATENT_VAR h, int kernel_ind, IMAGE_KERNEL_CACHE ** cached_images, WORD * words, int descriptor_offset, int * num_words, STRUCTMODEL * sm);
-void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, int start_x, int start_y, int num_across, int num_down, int total_num_down, int kernel_ind, WORD * words, int descriptor_offset, int * num_words, STRUCTMODEL * sm);
-
+void fill_max_pool(PATTERN x, LATENT_VAR h, int kernel_ind, IMAGE_KERNEL_CACHE ** cached_images, WORD* words, int descriptor_offset, int * num_words, STRUCTMODEL * sm);
+void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, int start_x, int start_y, int num_across, int num_down, int total_num_down, int kernel_ind, WORD* words, int descriptor_offset, int * num_words, STRUCTMODEL * sm);
+void writeModelToDisk(char* modelfile, double* w, int num_entries);
 #endif

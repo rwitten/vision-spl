@@ -99,7 +99,6 @@ typedef struct structmodel {
   char ** kernel_names;
   int * descriptor_spacing_xs;
   int * descriptor_spacing_ys;
-	int do_spm;
 } STRUCTMODEL;
 
 
@@ -131,6 +130,8 @@ typedef struct struct_learn_parm {
 	int size_hog;
 	int n_classes;
   int multi_kernel_spl;
+	int do_spm;
+	char* modelfile;
 } STRUCT_LEARN_PARM;
 
 typedef struct spl_variable_struct {
@@ -155,6 +156,7 @@ typedef struct fmvc_job {
     STRUCT_LEARN_PARM* sparm;
     int* valid_examples;
     int** valid_example_kernels;
+		char* modelfile;
 } fmvc_job;
 
 #endif
