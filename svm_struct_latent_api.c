@@ -470,8 +470,8 @@ void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, LATENT_VAR ou
 		int position = descriptor.descriptor;
 		assert(position+descriptor_offset>1);
 		assert(position+descriptor_offset<sm->sizePsi+1);
-		if( (descriptor.x>=ourbox.position_x_pixel) && (descriptor.x<=ourbox.position_x_pixel+ourbox.bbox_width_pixel) &&
-				(descriptor.y>=ourbox.position_y_pixel) && (descriptor.y<=ourbox.position_y_pixel+ourbox.bbox_height_pixel) )
+		if( (descriptor.x>=ourbox.position_x_pixel) && (descriptor.x<ourbox.position_x_pixel+ourbox.bbox_width_pixel) &&
+				(descriptor.y>=ourbox.position_y_pixel) && (descriptor.y<ourbox.position_y_pixel+ourbox.bbox_height_pixel) )
 		{
 			if (locations[position-1] == 0) {
 				locations[position - 1] = (*num_words);
@@ -710,7 +710,7 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		
 		memcpy(w, sm->w, sizeof(double)*sm->sizePsi+1);
 
-		int factor = 1;
+		int factor = 5;
 		int offset = 1;
 		int curr_point = 0;
 		for(int j = 0; j < sm->num_kernels;j++)
@@ -735,8 +735,8 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		LATENT_VAR h_temp;
 		h_temp.position_x_pixel=ourbox.left*factor; /* starting position of object */
     h_temp.position_y_pixel=ourbox.top*factor;
-    h_temp.bbox_width_pixel=(ourbox.right-ourbox.left)*factor;
-    h_temp.bbox_height_pixel=(ourbox.bottom-ourbox.top)*factor;
+    h_temp.bbox_width_pixel=(ourbox.right-ourbox.left+1)*factor;
+    h_temp.bbox_height_pixel=(ourbox.bottom-ourbox.top+1)*factor;
 		printf("their bounding box is left %d right %d top %d, bottom %d\n", ourbox.left, ourbox.right, ourbox.top, ourbox.bottom);
 
 //		printf("bounding box is x %d y %d width %d, height %d\n", h_temp.position_x_pixel,h_temp.position_y_pixel,
