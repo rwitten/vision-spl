@@ -66,10 +66,10 @@ typedef struct latent_var {
   /*
     Type definition for latent variable h
   */
-  int position_x_pixel; /* starting position of object */
-	int position_y_pixel;
-	int bbox_width_pixel;
-	int bbox_height_pixel;
+  double position_x_pixel; /* starting position of object */
+	double position_y_pixel;
+	double bbox_width_pixel;
+	double bbox_height_pixel;
 } LATENT_VAR;
 
 typedef struct example {
