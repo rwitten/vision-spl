@@ -13,9 +13,11 @@
 /*   use of this software.                                              */
 /*                                                                      */
 /************************************************************************/
+#include <assert.h>
 #include <math.h>
 #include <stdio.h>
-#include <assert.h>
+#include <sys/time.h>
+
 #include "svm_struct_latent_api.h"
 #include "./svm_light/svm_learn.h"
 
@@ -89,13 +91,13 @@ int main(int argc, char* argv[]) {
 
   read_struct_model(modelfile, &model);
 
-  IMAGE_KERNEL_CACHE ** cached_images = init_cached_images(&model);
 
   /* read test examples */
 	printf("Reading test examples..."); fflush(stdout);
 	testsample = read_struct_examples(testfile, &model, &sparm);
 	printf("done.\n");
 
+  IMAGE_KERNEL_CACHE ** cached_images = init_cached_images(testsample.examples,&model);
   
   avghingeloss = 0.0;
   correct = 0;
@@ -112,9 +114,14 @@ int main(int argc, char* argv[]) {
         //printf("%d %d\n",h.position_x,h.position_y);
     }
     //printf("%f\n",sparm.C);
+		struct timeval start_time;
+		struct timeval finish_time;
+		gettimeofday(&start_time, NULL);
 
-    double pos_score = classify_struct_example(testsample.examples[i].x,&y,&h,cached_images,&model,&sparm,impute, sparm.modelfile);
-
+    double pos_score = classify_struct_example(testsample.examples[i].x,&y,&h,cached_images,&model,&sparm,impute);
+		gettimeofday(&finish_time, NULL);
+		double microseconds = 1e6 * (finish_time.tv_sec - start_time.tv_sec) + (finish_time.tv_usec - start_time.tv_usec);
+    printf("This ESS call took %f milliseconds.\n", microseconds/1e3);
 
 		total_example_weight += testsample.examples[i].x.example_cost;
 		double hinge_l = get_hinge_l_from_pos_score(pos_score,testsample.examples[i].y);

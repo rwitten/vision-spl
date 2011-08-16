@@ -7,7 +7,7 @@ cd $base_dir
 
 for randomness in 1
 do
-	for classfold in 'verysmall'
+	for classfold in 'small'
 	do
 		for l in 0
 		do
@@ -21,11 +21,11 @@ do
 			commands_test[2]=" --j $j --l $l "
 			commands_test[3]=" --j $j --l $l "
 			
-			for C in 500
+			for C in 501
 			do
 				for algorithm in  1
 				do
-					for foldnum in 1
+					for foldnum in 1 
 					do
 						fold=${classfold}_${foldnum}
 						if [  -f ./output/${names[$algorithm]}${C}_${l}_${fold}_$randomness.starttime ]; then

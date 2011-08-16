@@ -48,8 +48,6 @@ typedef struct point_and_descriptor {
 typedef struct image_kernel_cache {
   int num_points;
   POINT_AND_DESCRIPTOR * points_and_descriptors;
-  int * begins;
-  int * ends;
 } IMAGE_KERNEL_CACHE;
 
 typedef struct label {
@@ -131,7 +129,6 @@ typedef struct struct_learn_parm {
 	int n_classes;
   int multi_kernel_spl;
 	int do_spm;
-	char* modelfile;
 } STRUCT_LEARN_PARM;
 
 typedef struct spl_variable_struct {
@@ -156,7 +153,6 @@ typedef struct fmvc_job {
     STRUCT_LEARN_PARM* sparm;
     int* valid_examples;
     int** valid_example_kernels;
-		char* modelfile;
 } fmvc_job;
 
 #endif

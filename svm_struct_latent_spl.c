@@ -37,7 +37,7 @@
 #define STOP_PREC 1E-2
 #define UPDATE_BOUND 3
 #define MAX_CURRICULUM_ITER 10
-#define NUM_THREADS 24
+#define NUM_THREADS 1
 #define MAX_OUTER_ITER 20
 
 #define MAX(x,y) ((x) < (y) ? (y) : (x))
@@ -97,9 +97,9 @@ double* add_list_nn(SVECTOR *a, long totwords)
     return(sum);
 }
 
-void find_most_violated_constraint(EXAMPLE *ex, LABEL *ybar, LATENT_VAR *hbar, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, char* modelfile) {
+void find_most_violated_constraint(EXAMPLE *ex, LABEL *ybar, LATENT_VAR *hbar, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm) {
   switch (sparm->margin_type) {
-  case 0: find_most_violated_constraint_marginrescaling (ex->x, ex->h, ex->y, ybar, hbar, cached_images, valid_kernels, sm, sparm, modelfile); break;
+  case 0: find_most_violated_constraint_marginrescaling (ex->x, ex->h, ex->y, ybar, hbar, cached_images, valid_kernels, sm, sparm); break;
   case 1: find_most_violated_constraint_differenty (ex->x, ex->h, ex->y, ybar, hbar, cached_images, valid_kernels, sm, sparm); break;
   default: printf ("Unrecognized margin_type '%d'\n", sparm->margin_type);
     exit(1);
@@ -116,14 +116,13 @@ double print_all_scores(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CAC
   double *new_constraint;
 	double obj = 0.0;
 
-	writeModelToDisk(sparm->modelfile,sm->w, sm->sizeSinglePsi);	
   /* find cutting plane */
   lhs = NULL;
   margin = 0;
   for (i=0;i<m;i++) {
 	if(!valid_examples[i])
 		continue;
-    find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, valid_example_kernels[i], sm, sparm,sparm->modelfile);
+    find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, valid_example_kernels[i], sm, sparm);
     /* get difference vector */
     fy = copy_svector(fycache[i]);
     //zero_svector_parts(valid_example_kernels[i], fy,sm);
@@ -176,14 +175,13 @@ double current_obj_val(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CACH
   double *new_constraint;
 	double obj = 0.0;
 
-	writeModelToDisk(sparm->modelfile,sm->w, sm->sizeSinglePsi);	
   /* find cutting plane */
   lhs = NULL;
   margin = 0;
   for (i=0;i<m;i++) {
 		if(!valid_examples[i])
 			continue;
-    find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, valid_example_kernels[i], sm, sparm,sparm->modelfile);
+    find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, valid_example_kernels[i], sm, sparm);
     /* get difference vector */
     fy = copy_svector(fycache[i]);
     //zero_svector_parts(valid_example_kernels[i], fy,sm);
@@ -254,7 +252,7 @@ void* handle_fmvc(void* inputa)
         else  //have to do the job
         {
           if (background->valid_examples[curr_task]) {
-            find_most_violated_constraint(&(background->ex_list[curr_task]), &(background->ybar_list[curr_task]), &(background->hbar_list[curr_task]), background->cached_images, background->valid_example_kernels[curr_task], background->sm, background->sparm, background->modelfile);
+            find_most_violated_constraint(&(background->ex_list[curr_task]), &(background->ybar_list[curr_task]), &(background->hbar_list[curr_task]), background->cached_images, background->valid_example_kernels[curr_task], background->sm, background->sparm);
           }
              pthread_mutex_lock(background->completed_lock);
              int completed_tasks = *(background->completed_tasks);
@@ -266,7 +264,7 @@ void* handle_fmvc(void* inputa)
 }
 
 
-void find_most_violated_constraint_parallel(int m,EXAMPLE* ex_list, LABEL* ybar_list, LATENT_VAR* hbar_list, IMAGE_KERNEL_CACHE ** cached_images, int * valid_examples, int ** valid_example_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, char* modelfile)
+void find_most_violated_constraint_parallel(int m,EXAMPLE* ex_list, LABEL* ybar_list, LATENT_VAR* hbar_list, IMAGE_KERNEL_CACHE ** cached_images, int * valid_examples, int ** valid_example_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm)
 {
     pthread_t mythreads[NUM_THREADS];
     int curr_task = 0;
@@ -291,7 +289,6 @@ void find_most_violated_constraint_parallel(int m,EXAMPLE* ex_list, LABEL* ybar_
     background.cached_images = cached_images;
     background.sm = sm;
     background.sparm = sparm;
-		background.modelfile = modelfile;
     int i;
     for(i=0; i < NUM_THREADS; i++)
     {
@@ -351,12 +348,11 @@ SVECTOR* find_cutting_plane(EXAMPLE *ex, SVECTOR **fycache, double *margin, long
   LABEL*       ybar_list =(LABEL*) ( malloc(m*sizeof(LABEL)));
   LATENT_VAR* hbar_list = (LATENT_VAR*)(malloc(m*sizeof(LATENT_VAR)));
 
-	writeModelToDisk(sparm->modelfile,sm->w, sm->sizeSinglePsi);	
 
   struct timeval start_time;
   struct timeval finish_time;
   gettimeofday(&start_time, NULL);
-  find_most_violated_constraint_parallel(m,ex, ybar_list, hbar_list, cached_images,valid_examples, valid_example_kernels,  sm, sparm,sparm->modelfile);
+  find_most_violated_constraint_parallel(m,ex, ybar_list, hbar_list, cached_images,valid_examples, valid_example_kernels,  sm, sparm);
   gettimeofday(&finish_time, NULL);
   //double microseconds = 1e6 * (int)(finish_time.tv_sec - start_time.tv_sec) + (int)(finish_time.tv_usec - start_time.tv_usec);
 
@@ -1058,7 +1054,6 @@ int main(int argc, char* argv[]) {
 
   init_struct_model(get_sample_size(trainfile), KERNEL_INFO_FILE, &sm);
 
-  IMAGE_KERNEL_CACHE ** cached_images = init_cached_images(&sm);
 
   /* read in examples */
   alldata = read_struct_examples(trainfile, &sm, &sparm);
@@ -1077,6 +1072,7 @@ int main(int argc, char* argv[]) {
 		sample = alldata;
 	}
   ex = sample.examples;
+  IMAGE_KERNEL_CACHE ** cached_images = init_cached_images(ex,&sm);
   m = sample.n;
 
   w = create_nvector(sm.sizePsi);

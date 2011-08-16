@@ -1,11 +1,12 @@
 # Makefile for Latent Structural SVM
 
-CC=g++ -Wall
+CC=g++ -Wall 
 #CFLAGS= -g 
 #CFLAGS= -O3 -fomit-frame-pointer -ffast-math
-CFLAGS = -O0 -g
+CFLAGS = -O3 -g
 LD=g++ -Wall
-LDFLAGS= -O0 -g
+LDFLAGS= -O3 -g
+ESSFLAGS = -O3 -g -c
 #LDFLAGS= -O3
 #LDFLAGS = -O3 -pg
 LIBS= -lm
@@ -15,17 +16,24 @@ MSKLINKFLAGS= -lmosek64 -lpthread -lm
 MSKLIBPATH= /afs/cs.stanford.edu/u/pawan/Project/mosek/6/tools/platform/linux64x86/bin/
 SFMTPATH= ./SFMT-src-1.3.3
 
-all: svm_bbox_learn svm_bbox_classify
+all: ess svm_bbox_learn svm_bbox_classify
 
 clean: 
 	rm -f *.o
-	rm -f svm_bbox_learn svm_bbox_classify
+	rm -f svm_bbox_learn svm_bbox_classify ess
+
+ess:    clean ess.cc quality_pyramid.cc quality_box.cc
+	#g++ -O3 -o ess ess.cc quality_pyramid.cc quality_box.cc 
+	#g++ -O3 -c -D__MAIN__ -o ess ess.cc quality_pyramid.cc quality_box.cc 
+	g++ $(ESSFLAGS) quality_pyramid.cc 
+	g++ $(ESSFLAGS) quality_box.cc 
+	g++ $(ESSFLAGS) ess.cc 
 
 svm_bbox_learn: svm_struct_latent_spl.o svm_common.o mosek_qp_optimize.o svm_struct_latent_api.o SFMT.o
-	$(LD) $(LDFLAGS) svm_struct_latent_spl.o svm_common.o mosek_qp_optimize.o SFMT.o svm_struct_latent_api.o -o svm_bbox_learn $(LIBS) -L $(MSKLIBPATH) $(MSKLINKFLAGS)
+	$(LD) $(LDFLAGS) quality_pyramid.o quality_box.o ess.o svm_struct_latent_spl.o svm_common.o mosek_qp_optimize.o SFMT.o svm_struct_latent_api.o -o svm_bbox_learn $(LIBS) -L $(MSKLIBPATH) $(MSKLINKFLAGS)
 
 svm_bbox_classify: svm_struct_latent_classify.o svm_common.o svm_struct_latent_api.o SFMT.o
-	$(LD) $(LDFLAGS) svm_struct_latent_classify.o svm_common.o SFMT.o svm_struct_latent_api.o -o svm_bbox_classify $(LIBS)
+	$(LD) $(LDFLAGS) quality_pyramid.o quality_box.o ess.o svm_struct_latent_classify.o svm_common.o SFMT.o svm_struct_latent_api.o -o svm_bbox_classify $(LIBS)
 
 svm_struct_latent_spl.o: svm_struct_latent_spl.c
 	$(CC) -c $(CFLAGS) svm_struct_latent_spl.c -o svm_struct_latent_spl.o
