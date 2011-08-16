@@ -588,9 +588,8 @@ LATENT_VAR choose_subset(LATENT_VAR h, int subset,  STRUCT_LEARN_PARM *sparm)
 		{
 			h_out.position_x_pixel = h.position_x_pixel; 
 			h_out.position_y_pixel = h.position_y_pixel;
-			return h_out;
 		}
-		/*else if(subset==2)
+		else if(subset==2)
 		{
 			h_out.position_x_pixel = h.position_x_pixel+h_out.bbox_width_pixel;
 			h_out.position_y_pixel = h.position_y_pixel;
@@ -606,12 +605,7 @@ LATENT_VAR choose_subset(LATENT_VAR h, int subset,  STRUCT_LEARN_PARM *sparm)
 			assert(subset==4);
 			h_out.position_x_pixel = h.position_x_pixel+h_out.bbox_width_pixel;
 			h_out.position_y_pixel = h.position_y_pixel+h_out.bbox_height_pixel;
-		}*/
-		LATENT_VAR h_out;
-		h_out.position_x_pixel = 0;
-		h_out.position_y_pixel = 0;
-		h_out.bbox_width_pixel = 0;
-		h_out.bbox_height_pixel = 0;
+		}
 		return h_out;
 	}
 	return h_out;
@@ -631,7 +625,6 @@ SVECTOR* psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cached_imag
   //binary labelling for now - 1 means there's a car, 0 means there's no car
   if (y.label) {
 		fvec = single_psi(x,y,choose_subset(h,0,sparm),cached_images,valid_kernels,sm,sparm,1);
-//		printf("h : %f %f %f %f\n", h.position_x_pixel, h.position_y_pixel, h.bbox_width_pixel, h.bbox_height_pixel);
 		for(int subset = 1; subset<NUM_WINDOWS; subset++)
 		{
 			SVECTOR* addl_part = single_psi(x,y,choose_subset(h,subset,sparm),cached_images,valid_kernels,sm,sparm,1+sm->sizeSinglePsi*subset);
@@ -716,7 +709,7 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		
 		memcpy(w, sm->w, sizeof(double)*sm->sizePsi+1);
 
-		int factor = 10;
+		int factor = 30;
 		int offset = 1;
 		int curr_point = 0;
 		for(int j = 0; j < sm->num_kernels;j++)
@@ -745,7 +738,7 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
     h_temp.position_y_pixel=ourbox.top*factor;
     h_temp.bbox_width_pixel=(ourbox.right-ourbox.left+1)*factor;
     h_temp.bbox_height_pixel=(ourbox.bottom-ourbox.top+1)*factor;
-		printf("their bounding box is left %d right %d top %d, bottom %d\n", factor*ourbox.left, factor*ourbox.right, factor*ourbox.top, factor*ourbox.bottom);
+//		printf("their bounding box is left %d right %d top %d, bottom %d\n", factor*ourbox.left, factor*ourbox.right, factor*ourbox.top, factor*ourbox.bottom);
 
 //		printf("bounding box is x %d y %d width %d, height %d\n", h_temp.position_x_pixel,h_temp.position_y_pixel,
 //			h_temp.bbox_width_pixel, h_temp.bbox_height_pixel);
@@ -796,8 +789,8 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		}
 		gettimeofday(&end_time, NULL);
 		double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
-		printf("ESS got %f and we got %f\n", ourbox.score, ourscore-sm->w[1]);
-		assert(( (ourscore - sm->w[1] - ourbox.score < .001)&&(ourscore -sm->w[1]- ourbox.score > -.001)));
+		//printf("ESS got %f and we got %f\n", ourbox.score, ourscore-sm->w[1]);
+		//assert(( (ourscore - sm->w[1] - ourbox.score < .001)&&(ourscore -sm->w[1]- ourbox.score > -.001)));
 		//assert(( (ourbox.score - truescore < .001)&&(ourbox.score - truescore > -.001)));
 		free(argxpos);
 		free(argypos);
