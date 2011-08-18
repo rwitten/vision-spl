@@ -37,24 +37,21 @@ void BoxQualityFunction::create_integral_matrices(const std::vector<double> &raw
     // split the weight matrix into positive and negative entries
     for (unsigned int i=0; i < raw_matrix.size(); i++) {
         double val = raw_matrix[i];
-        if (val > 0.)
-            pos_matrix[i] = val;
-        else
-            neg_matrix[i] = val;
+        pos_matrix[i] = val;
     }
 
     // calculate integral image verically
     for (int j=1; j < height; j++) {
         for (int i=1; i < width; i++) {
             pos_matrix[off(i,j)] += pos_matrix[off(i,j-1)];
-            neg_matrix[off(i,j)] += neg_matrix[off(i,j-1)];
+       //     neg_matrix[off(i,j)] += neg_matrix[off(i,j-1)];
         }
     }
     // calculate integral image horizontally
     for (int j=1; j<height; j++) {
         for (int i=1; i<width; i++) {
             pos_matrix[off(i,j)] += pos_matrix[off(i-1,j)];
-            neg_matrix[off(i,j)] += neg_matrix[off(i-1,j)];
+   //         neg_matrix[off(i,j)] += neg_matrix[off(i-1,j)];
         }
     }
     return;
@@ -87,6 +84,7 @@ void BoxQualityFunction::cleanup() {
     return;
 }
 
+inline
 double BoxQualityFunction::upper_bound(const sstate* state) const {
     return quality_upper_single(state);
 }

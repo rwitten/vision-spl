@@ -50,8 +50,7 @@ typedef struct {
 class sstate {
   public:
     float upper; 
-    short low[4];   // there can be millions of sstates, better save some memory
-    short high[4];
+    short only[4];   // there can be millions of sstates, better save some memory
 
     // construct empty
     sstate() { }
@@ -59,29 +58,25 @@ class sstate {
     // construct as full search space
     sstate(int argwidth, int argheight) {
         upper = std::numeric_limits<float>::max();
-        low[0] = 1; // because of padding column/row 0 are never part of a rectangle
-        low[1] = 1;
-        low[2] = 1;
-        low[3] = 1;
-        high[0] = argwidth;
-        high[1] = argheight;
-        high[2] = argwidth;
-        high[3] = argheight;
+        only[0] = 1;
+        only[1] = 1;
+        only[2] = argwidth;
+        only[3] = argheight;
     }
 
     std::string tostring() const {
         char cstring[80];
         sprintf(cstring, "low < %d %d %d %d > high < %d %d %d %d >\n", 
-                low[0],low[1],low[2],low[3],high[0],high[1],high[2],high[3]);
+                only[0],only[1],only[2],only[3],only[0],only[1],only[2],only[3]);
         return std::string(cstring);
     }
 
-    // calculate argmax_i( high[i]-low[i] ), or -1 if high==low
+    // calculate argmax_i( only[i]-only[i] ), or -1 if high==low
     int maxindex() const { 
         int splitindex=-1;
         int maxwidth=0;
         for (unsigned int i=0;i<4;i++) { 
-            int interval_width = high[i] - low[i];
+            int interval_width = only[i] - only[i];
             if (interval_width > maxwidth) {
                 splitindex=i;
                 maxwidth = interval_width;
@@ -91,7 +86,7 @@ class sstate {
     }
 
     bool islegal() const {
-        return ((low[0] <= high[2]) && (low[1] <= high[3]));
+        return ((only[0] <= only[2]) && (only[1] <= only[3]));
     }
 
     // "less" is needed to compare states in stl_priority queue

@@ -30,19 +30,12 @@
 #include "ess.hh"
 #include "quality_pyramid.hh"
 
-sstate PyramidQualityFunction::rel_to_abs_coordinate(const Cell &subcoordinate, 
-                                                     const sstate* fullstate) const {
-    sstate substate;
-    substate.upper = fullstate->upper;
-    substate.low[0] =  static_cast<short>((1-subcoordinate.left)  *fullstate->low[0]  + subcoordinate.left  *fullstate->low[2] );
-    substate.high[0] = static_cast<short>((1-subcoordinate.left)  *fullstate->high[0] + subcoordinate.left  *fullstate->high[2]);
-    substate.low[2] =  static_cast<short>((1-subcoordinate.right) *fullstate->low[0]  + subcoordinate.right *fullstate->low[2] );
-    substate.high[2] = static_cast<short>((1-subcoordinate.right) *fullstate->high[0] + subcoordinate.right *fullstate->high[2]);
-    substate.low[1] =  static_cast<short>((1-subcoordinate.top)   *fullstate->low[1]  + subcoordinate.top   *fullstate->low[3] );
-    substate.high[1] = static_cast<short>((1-subcoordinate.top)   *fullstate->high[1] + subcoordinate.top   *fullstate->high[3]);
-    substate.low[3] =  static_cast<short>((1-subcoordinate.bottom)*fullstate->low[1]  + subcoordinate.bottom*fullstate->low[3] );
-    substate.high[3] = static_cast<short>((1-subcoordinate.bottom)*fullstate->high[1] + subcoordinate.bottom*fullstate->high[3]);
-    return substate;  // by value
+void PyramidQualityFunction::rel_to_abs_coordinate(const Cell &subcoordinate, 
+                                                     const sstate* fullstate, sstate* substate) const {
+    substate->only[0] =  static_cast<short>((1-subcoordinate.left)  *fullstate->only[0]  + subcoordinate.left  *fullstate->only[2] );
+    substate->only[1] =  static_cast<short>((1-subcoordinate.top)   *fullstate->only[1]  + subcoordinate.top   *fullstate->only[3] );
+    substate->only[2] =  static_cast<short>((1-subcoordinate.right) *fullstate->only[0]  + subcoordinate.right *fullstate->only[2] );
+    substate->only[3] = static_cast<short>((1-subcoordinate.bottom)*fullstate->only[1] + subcoordinate.bottom*fullstate->only[3]);
 }
 
 void PyramidQualityFunction::setup(int argnumpoints, int argwidth, int argheight, 
@@ -86,10 +79,18 @@ void PyramidQualityFunction::cleanup() {
 
 double PyramidQualityFunction::upper_bound(const sstate* state) const {
     double quality_bound=0.;
-    for (unsigned int i=0; i<cell_quality.size(); i++) {
-        sstate substate = rel_to_abs_coordinate(cell_coordinates[i], state);
-        quality_bound += cell_weights[i] * cell_quality[i].upper_bound(&substate);
+		int size = cell_quality.size();
+		sstate substate;
+    substate.upper = state->upper;
+    for (unsigned int i=0; i<size; i++) {
+        rel_to_abs_coordinate(cell_coordinates[i], state,&substate);
+        quality_bound +=  cell_quality[i].upper_bound(&substate);
+				//quality_bound+=substate.upper;
     }
+    /*for (unsigned int i=0; i<cell_quality.size(); i++) {
+        sstate substate = rel_to_abs_coordinate(cell_coordinates[i], state);
+        quality_bound +=  cell_quality[i].upper_bound(&substate);
+    }*/
     return quality_bound;
 }
 

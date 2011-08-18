@@ -47,18 +47,15 @@ class BoxQualityFunction : public QualityFunction {
         double rect_val(unsigned int xl, unsigned int yl, 
                         unsigned int xh, unsigned int yh,
                         const std::vector<double> &matrix) const {
-            if ( (xl > xh) || (yl > yh)) return 0.;
+            //if ( (xl > xh) || (yl > yh)) return 0.;
 
-            const double val = matrix[off(xh,yh)] - matrix[off(xh,yl-1)]
+            return matrix[off(xh,yh)] - matrix[off(xh,yl-1)]
                                - matrix[off(xl-1,yh)] + matrix[off(xl-1,yl-1)];
-            return val;
         }
 
         // calculate upper bound for one set of rectangles
-        double quality_upper_single(const sstate* s) const {
-            const double fplus = rect_val(s->low[0], s->low[1], s->high[2], s->high[3], pos_matrix);
-            const double fminus = rect_val(s->high[0], s->high[1], s->low[2], s->low[3], neg_matrix);
-            return fplus+fminus;
+        inline double quality_upper_single(const sstate* s) const {
+            return rect_val(s->only[0], s->only[1], s->only[2], s->only[3], pos_matrix);
         }
 
 

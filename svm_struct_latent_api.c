@@ -707,7 +707,7 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		
 		memcpy(w, sm->w, sizeof(double)*sm->sizePsi+1);
 
-		int factor = 10;
+		int factor = 20;
 		int offset = 1;
 		int curr_point = 0;
 		for(int j = 0; j < sm->num_kernels;j++)

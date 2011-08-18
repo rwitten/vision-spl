@@ -56,7 +56,7 @@ class PyramidQualityFunction : public QualityFunction {
         std::vector<Cell> cell_coordinates;
         std::vector<double> cell_weights;
 
-        sstate rel_to_abs_coordinate(const Cell &subcoordinate, const sstate* state) const;
+        void rel_to_abs_coordinate(const Cell &subcoordinate, const sstate* state, sstate* newstate) const;
 
     public:
         void setup(int argnumpoints, int argwidth, int argheight, 
