@@ -63,10 +63,10 @@ class sstate {
         low[1] = 1;
         low[2] = 1;
         low[3] = 1;
-        high[0] = argwidth-1;
-        high[1] = argheight-1;
-        high[2] = argwidth-1;
-        high[3] = argheight-1;
+        high[0] = argwidth;
+        high[1] = argheight;
+        high[2] = argwidth;
+        high[3] = argheight;
     }
 
     std::string tostring() const {
@@ -119,7 +119,7 @@ extern "C" {
 Box pyramid_search(int argnumpoints, int argwidth, int argheight,
                    double* argxpos, double* argypos, double* argclst,
                    int argnumclusters, int argnumlevels, double* argweight,
-									 double maxiterations, int& solvedExactly);
+									 double maxiterations, int& solvedExactly, int factor);
 }
 
 #endif

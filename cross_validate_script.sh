@@ -21,7 +21,7 @@ do
 			commands_test[2]=" --j $j --l $l "
 			commands_test[3]=" --j $j --l $l "
 			
-			for C in 500 1000 2500 5000
+			for C in 501
 			do
 				for algorithm in  1 
 				do
@@ -51,8 +51,8 @@ do
 						echo $command_train_matlab >> $script_name
 						echo $command_endtimestamp >> $script_name
 						chmod +x $script_name
-						echo "Posting job " ${base_dir}/${script_name}
-						~/bin/appendJob.pl ${base_dir}/${script_name}
+#						echo "Posting job " ${base_dir}/${script_name}
+#						~/bin/appendJob.pl ${base_dir}/${script_name}
 					done
 				done
 			done

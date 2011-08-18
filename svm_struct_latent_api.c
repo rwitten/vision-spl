@@ -581,8 +581,8 @@ LATENT_VAR choose_subset(LATENT_VAR h, int subset,  STRUCT_LEARN_PARM *sparm)
 	}
 	else
 	{
-		h_out.bbox_width_pixel = h.bbox_width_pixel/2+1;
-		h_out.bbox_height_pixel = h.bbox_height_pixel/2+1;
+		h_out.bbox_width_pixel = h.bbox_width_pixel/2;
+		h_out.bbox_height_pixel = h.bbox_height_pixel/2;
 		
 		if(subset==1)
 		{
@@ -597,8 +597,7 @@ LATENT_VAR choose_subset(LATENT_VAR h, int subset,  STRUCT_LEARN_PARM *sparm)
 		else if(subset==3)
 		{
 			h_out.position_x_pixel = h.position_x_pixel;
-			h_out.position_y_pixel = h.position_y_pixel+h_out.bbox_height_pixel;
-
+			h_out.position_y_pixel = h.position_y_pixel+h_out.bbox_height_pixel-1;
 		}
 		else
 		{
@@ -606,7 +605,6 @@ LATENT_VAR choose_subset(LATENT_VAR h, int subset,  STRUCT_LEARN_PARM *sparm)
 			h_out.position_x_pixel = h.position_x_pixel+h_out.bbox_width_pixel;
 			h_out.position_y_pixel = h.position_y_pixel+h_out.bbox_height_pixel;
 		}
-		return h_out;
 	}
 	return h_out;
 }
@@ -709,15 +707,15 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		
 		memcpy(w, sm->w, sizeof(double)*sm->sizePsi+1);
 
-		int factor = 30;
+		int factor = 10;
 		int offset = 1;
 		int curr_point = 0;
 		for(int j = 0; j < sm->num_kernels;j++)
 		{
 			for(int i = 0 ; i<cached_images[x.example_id][j].num_points;i++)
 			{
-				argxpos[curr_point] = (cached_images[x.example_id][j].points_and_descriptors[i].x)/factor;
-				argypos[curr_point] = (cached_images[x.example_id][j].points_and_descriptors[i].y)/factor;
+				argxpos[curr_point] = (cached_images[x.example_id][j].points_and_descriptors[i].x);
+				argypos[curr_point] = (cached_images[x.example_id][j].points_and_descriptors[i].y);
 				argclst[curr_point] = cached_images[x.example_id][j].points_and_descriptors[i].descriptor+offset;
 				assert(argclst[curr_point]>1);
 				assert(argclst[curr_point]<sm->sizePsi+1);
@@ -725,61 +723,25 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 			}
 			offset += sm->kernel_sizes[j];
 		}
-		int solvedExactly=-1;
+		int solvedExactly=1;
 		assert(curr_point == total_indices);
 		int N = sparm->do_spm ? 2 : 1;
-		Box ourbox = pyramid_search(total_indices, 1+(int)(x.width_pixel/factor), 1+(int)(x.height_pixel/factor),
+		Box ourbox = pyramid_search(total_indices, 1+(int)(x.width_pixel), 1+(int)(x.height_pixel),
 										 argxpos, argypos, argclst,
 											sm->sizeSinglePsi, N, w,
-											1e9, solvedExactly);
+											1e9, solvedExactly, factor);
 
 		LATENT_VAR h_temp;
-		h_temp.position_x_pixel=ourbox.left*factor; /* starting position of object */
-    h_temp.position_y_pixel=ourbox.top*factor;
-    h_temp.bbox_width_pixel=(ourbox.right-ourbox.left+1)*factor;
-    h_temp.bbox_height_pixel=(ourbox.bottom-ourbox.top+1)*factor;
-//		printf("their bounding box is left %d right %d top %d, bottom %d\n", factor*ourbox.left, factor*ourbox.right, factor*ourbox.top, factor*ourbox.bottom);
+		h_temp.position_x_pixel=ourbox.left; /* starting position of object */
+    h_temp.position_y_pixel=ourbox.top;
+    h_temp.bbox_width_pixel=(ourbox.right-ourbox.left+1);
+    h_temp.bbox_height_pixel=(ourbox.bottom-ourbox.top+1);
+//		printf("their bounding box is left %d right %d top %d, bottom %d\n", ourbox.left, ourbox.right, ourbox.top, ourbox.bottom);
 
 //		printf("bounding box is x %d y %d width %d, height %d\n", h_temp.position_x_pixel,h_temp.position_y_pixel,
 //			h_temp.bbox_width_pixel, h_temp.bbox_height_pixel);
 //		printf("given width %d given height %d num points %d\n",  1+(int)(x.width_pixel/factor),  1+(int)(x.height_pixel/factor), curr_point);
 		double ourscore = compute_w_T_psi(&x, h_temp, y_curr.label,cached_images, NULL, sm, sparm);
-
-		if(0 && !solvedExactly)
-		{
-			int factor = 20;
-			int offset = 1;
-			int curr_point = 0;
-			for(int j = 0; j < sm->num_kernels;j++)
-			{
-				for(int i = 0 ; i<cached_images[x.example_id][j].num_points;i++)
-				{
-					argxpos[curr_point] = cached_images[x.example_id][j].points_and_descriptors[i].x/factor;
-					argypos[curr_point] = cached_images[x.example_id][j].points_and_descriptors[i].y/factor;
-					argclst[curr_point] = cached_images[x.example_id][j].points_and_descriptors[i].descriptor+offset+1;
-					curr_point++;
-				}
-				offset += sm->kernel_sizes[j];
-			}
-			assert(curr_point == total_indices);
-			Box ourbox2 = pyramid_search(total_indices, 1+(int)(x.width_pixel/factor), 1+(int)(x.height_pixel/factor),
-											 argxpos, argypos, argclst,
-												sm->sizeSinglePsi, N, w,
-												1e8, solvedExactly);
-			LATENT_VAR h_temp2;
-			h_temp2.position_x_pixel=ourbox2.left*factor; /* starting position of object */
-			h_temp2.position_y_pixel=ourbox2.top*factor;
-			h_temp2.bbox_width_pixel=(ourbox2.right-ourbox2.left)*factor;
-			h_temp2.bbox_height_pixel=(ourbox2.bottom-ourbox2.top)*factor;
-			double ourscore2 = compute_w_T_psi(&x, h_temp2, y_curr.label,cached_images, NULL, sm, sparm);
-
-			if(ourscore2>ourscore)
-			{
-				ourscore=ourscore2;
-				h_temp = h_temp2;
-				ourbox = ourbox2;
-			}
-		}
 
 		if(ourscore+loss>*max_score)
 		{
@@ -789,8 +751,8 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		}
 		gettimeofday(&end_time, NULL);
 		double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
-		//printf("ESS got %f and we got %f\n", ourbox.score, ourscore-sm->w[1]);
-		//assert(( (ourscore - sm->w[1] - ourbox.score < .001)&&(ourscore -sm->w[1]- ourbox.score > -.001)));
+//		printf("ESS got %f and we got %f\n", ourbox.score, ourscore-sm->w[1]);
+//		assert(( (ourscore - sm->w[1] - ourbox.score < 1e-1)&&(ourscore -sm->w[1]- ourbox.score > -1e-1)));
 		//assert(( (ourbox.score - truescore < .001)&&(ourbox.score - truescore > -.001)));
 		free(argxpos);
 		free(argypos);

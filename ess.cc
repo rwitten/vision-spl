@@ -35,6 +35,7 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <sys/time.h>
 
 #include "ess.hh"
 #include "quality_pyramid.hh"
@@ -61,26 +62,61 @@ static int verbose = 0;
 // 3) calculate upper bounds for the parts
 // 4) re-insert the parts
 
-static int extract_split_and_insert(sstate_heap *pH,PyramidQualityFunction quality_bound) {
+
+//find the biggest number of the form c*base + 1 less than or equal to  input
+int round_down(int input, int base)
+{
+	if(base* ((int)(input/base))+1 <= input)
+		return base* ((int)(input/base))+1;
+	else
+		return base* ((int)(input/base))+1-base;
+}
+
+int round_strictly_up(int input, int base)
+{
+	if(base* ((int)(input/base))+1 > input)
+		return base* ((int)(input/base))+1;
+	else
+		return base* ((int)(input/base))+1+base;
+}
+
+static int extract_split_and_insert(sstate_heap *pH,PyramidQualityFunction quality_bound,int factor) {
+		struct timeval start_point;
+		struct timeval start_point_after_queue;
+		struct timeval halfway_point;	
+		struct timeval end_time;	
+		gettimeofday(&start_point, NULL);
 
     // step 1) find the most promising candidate region 
     const sstate* curstate = pH->top();
-
+		gettimeofday(&start_point_after_queue, NULL);
+		double microseconds = 1e6 * (start_point_after_queue.tv_sec - start_point.tv_sec) + (start_point_after_queue.tv_usec - start_point.tv_usec);
+		printf("Queue time %f\n", microseconds);
+//		printf("best upper bound is %f\n", curstate->upper);
     // step 2a) check if the stop criterion is reached
     const int splitindex = curstate->maxindex();
+
     if (splitindex < 0)
         return -1;    // no more splits => convergence
-
+//		printf("spliting on %d %d\n", curstate->low[splitindex], curstate->high[splitindex]);
     // step 2b) otherwise, create two new states as copies of the old, except for splitindex
     pH->pop();
     sstate* newstate0 = new sstate(*curstate);
     newstate0->high[splitindex] = (curstate->low[splitindex] + curstate->high[splitindex])>>1;
+		//printf("We round down %d to %d\n", newstate0->high[splitindex], round_down(newstate0->high[splitindex],factor));
+    newstate0->high[splitindex] = round_down(newstate0->high[splitindex],factor);
 
     sstate* newstate1 = new sstate(*curstate);
     newstate1->low[splitindex] = (curstate->low[splitindex] + curstate->high[splitindex]+1)>>1;
+    newstate1->low[splitindex] = round_strictly_up(newstate1->low[splitindex],factor);
+		//printf("We round up %d to %d\n", newstate1->low[splitindex], round_up(newstate1->low[splitindex],factor));
 
+//		printf("We split %d [%d, %d] into [%d, %d] and [%d, %d]\n", splitindex,curstate->low[splitindex], curstate->high[splitindex],newstate0->low[splitindex],newstate0->high[splitindex], newstate1->low[splitindex], newstate1->high[splitindex]);
     // the old state isn't needed anymore
     delete curstate; curstate=NULL;
+		gettimeofday(&halfway_point, NULL);
+		microseconds = 1e6 * (halfway_point.tv_sec - start_point_after_queue.tv_sec) + (halfway_point.tv_usec - start_point_after_queue.tv_usec);
+		printf("Split time %f\n", microseconds);
     
     // step 3&4) calculate upper bounds for the parts and reinject them 
     if ( newstate0->islegal() ) {
@@ -91,6 +127,7 @@ static int extract_split_and_insert(sstate_heap *pH,PyramidQualityFunction quali
 		{
 			free(newstate0);
 		}
+
     if ( newstate1->islegal() ) {
         newstate1->upper = quality_bound.upper_bound(newstate1);
         pH->push(newstate1);
@@ -99,6 +136,9 @@ static int extract_split_and_insert(sstate_heap *pH,PyramidQualityFunction quali
 		{
 			free(newstate1);
 		}
+		gettimeofday(&end_time, NULL);
+		microseconds = 1e6 * (end_time.tv_sec - halfway_point.tv_sec) + (end_time.tv_usec - halfway_point.tv_usec);
+		printf("Push time %f\n", microseconds);
     
     // no error, but also no convergence, yet
     return 0;
@@ -123,8 +163,8 @@ extern "C" {
 Box pyramid_search(int argnumpoints, int argwidth, int argheight, 
                    double* argxpos, double* argypos, double* argclst,
                    int argnumclusters, int argnumlevels, double* argweight,
-									 double maxiterations, int& solvedExactly) {
-    Box outputBox = {-1, -1, -1, -1, -1.};
+									 double maxiterations, int& solvedExactly, int factor) {
+		Box outputBox = {-1, -1, -1, -1, -1.};
     argwidth += 1; // make space for 1 pixel padding
     argheight += 1;
    PyramidQualityFunction quality_bound;
@@ -145,33 +185,65 @@ Box pyramid_search(int argnumpoints, int argwidth, int argheight,
     delete [] paramstruct.weightptr;
 
 // intialize the search space (start with full image)
-    sstate* fullspace = new sstate(argwidth, argheight);
+    sstate* single = new sstate(round_down(argwidth-1,factor), round_down(argheight-1,factor));
+    sstate* best = new sstate(round_down(argwidth-1,factor), round_down(argheight-1,factor));
+
+		sstate* single_original= single;
+		sstate* best_original = best;
+		best->upper =  -1e10;
+//    sstate* fullspace = new sstate(round_down(argwidth-1,factor), round_down(argheight-1,factor));
     
 // push first box set into priority queue
-    sstate_heap H;
-    H.push(fullspace);
+    //sstate_heap H;
+    //H.push(fullspace);
+
+
+		int upper_x =  round_down(argwidth-1,factor);
+		int upper_y = round_down(argheight-1,factor);
 
 // main loop. Iterate extract/split/evaluate/reinsert until convergence or forced exit
     long counter=1;
-    while ((extract_split_and_insert(&H,quality_bound) >= 0) && (counter < maxiterations)) {
-        if (verbose) {
-            if ((counter % verbose) == 0) {
-                const sstate *curmax = H.top();
-                std::cerr << "#counter " << std::setw(8) << counter;
-                std::cerr << " heapsize " << std::setw(8) << H.size();
-                std::cerr << " <" << std::setw(4) << curmax->upper << " > ";
-                std::cerr << curmax->tostring();
-            }
-        }
+		for(int curr_lower_x = 1; curr_lower_x<=upper_x; curr_lower_x+=factor)
+		{
+			for(int curr_lower_y = 1; curr_lower_y<=upper_y; curr_lower_y+=factor)
+			{
+				for(int curr_upper_x=curr_lower_x; curr_upper_x <= upper_x ; curr_upper_x+=factor)
+				{
+					for(int curr_upper_y=curr_lower_y; curr_upper_y <= upper_y ; curr_upper_y+=factor)
+					{
+						single->low[0] = curr_lower_x;
+						single->low[1] = curr_lower_y;
+						single->low[2] = curr_upper_x;
+						single->low[3] = curr_upper_y;
+						single->high[0] = curr_lower_x;
+						single->high[1] = curr_lower_y;
+						single->high[2] = curr_upper_x;
+						single->high[3] = curr_upper_y;
+						single->upper = quality_bound.upper_bound(single);
+						if(single->upper > best->upper)
+						{
+							sstate* temp = best;
+							best = single;
+							single = temp;
+						}
+						counter++;
+					}
+				}
+			}
+		}
+
+		//printf("we explored %d states\n", counter);
+/*    while ((extract_split_and_insert(&H,quality_bound,factor) >= 0) && (counter < maxiterations)) {
         counter++;
-    }
+				printf("Whats the count %d\n", counter);
+    }*/
 
 		if(counter<maxiterations)
 			solvedExactly=1;
 		else
 			solvedExactly=0;
 // at convergence or error, return result or best guess
-    const sstate* curstate = H.top();
+    const sstate* curstate = best; //H.top();
     outputBox.left   = ((curstate->low[0]+curstate->high[0])>>1) -1;  // remove padding
     outputBox.top    = ((curstate->low[1]+curstate->high[1])>>1) -1;
     outputBox.right  = ((curstate->low[2]+curstate->high[2])>>1) -1;
@@ -179,13 +251,15 @@ Box pyramid_search(int argnumpoints, int argwidth, int argheight,
     outputBox.score  = curstate->upper;
 
 // Free memory of the states that are still in the queue
-        while (!H.empty()) {
+/*        while (!H.empty()) {
         delete H.top();
             H.pop();
-    }
+    }*/
 
 // generic function to free any internal resource 
     quality_bound.cleanup();
+		delete single_original;
+		delete best_original;
 
     return outputBox;
 }
