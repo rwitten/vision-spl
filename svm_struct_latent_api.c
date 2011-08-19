@@ -382,13 +382,12 @@ void fill_image_kernel_cache(PATTERN x, int kernel_ind, IMAGE_KERNEL_CACHE * ikc
   /*this will sort points by x, and within that, by y*/
   qsort(ikc->points_and_descriptors, ikc->num_points, sizeof(POINT_AND_DESCRIPTOR), pad_cmp);
   
-  x.descriptor_top_left_xs[kernel_ind] = ikc->points_and_descriptors[0].x;
+  /*x.descriptor_top_left_xs[kernel_ind] = ikc->points_and_descriptors[0].x;
   x.descriptor_top_left_ys[kernel_ind] = ikc->points_and_descriptors[0].y;
   
-  /*Need to cut off last column because of stupid honeycomb nonsense that some idiot from the Netherlands decided to do.*/
-    cut_off_last_column(ikc);
+  //Need to cut off last column because of stupid honeycomb nonsense that some idiot from the Netherlands decided to do.
+//    cut_off_last_column(ikc);
 
-  /*and now we rely heavily on the assumption that there's grid structure in order to figure out how many descriptor points we have down and across*/
   p = 1;
   while (1) {
     int prev_y = ikc->points_and_descriptors[p - 1].y;
@@ -407,7 +406,7 @@ void fill_image_kernel_cache(PATTERN x, int kernel_ind, IMAGE_KERNEL_CACHE * ikc
     }
   }
   assert((ikc->num_points % p) == 0);
-  x.descriptor_num_acrosses[kernel_ind] = ikc->num_points / p;
+  x.descriptor_num_acrosses[kernel_ind] = ikc->num_points / p;*/
 }
 
 void try_cache_image(PATTERN x, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL * sm) {
@@ -470,8 +469,8 @@ void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, LATENT_VAR ou
 		int position = descriptor.descriptor;
 		assert(position+descriptor_offset>1);
 		assert(position+descriptor_offset<sm->sizePsi+1);
-		if( (descriptor.x>=ourbox.position_x_pixel) && (descriptor.x<ourbox.position_x_pixel+ourbox.bbox_width_pixel) &&
-				(descriptor.y>=ourbox.position_y_pixel) && (descriptor.y<ourbox.position_y_pixel+ourbox.bbox_height_pixel) )
+		if( (descriptor.x>=ourbox.position_x_pixel) && (descriptor.x<=ourbox.position_x_pixel+ourbox.bbox_width_pixel) &&
+				(descriptor.y>=ourbox.position_y_pixel) && (descriptor.y<=ourbox.position_y_pixel+ourbox.bbox_height_pixel) )
 		{
 			if (locations[position-1] == 0) {
 				locations[position - 1] = (*num_words);
@@ -700,12 +699,9 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		double* argxpos = (double*)malloc(sizeof(double)*total_indices);
 		double* argypos = (double*)malloc(sizeof(double)*total_indices);
 		double* argclst = (double*)malloc(sizeof(double)*total_indices);
-		double* w = (double*)malloc(sizeof(double)*sm->sizePsi+1);
-
-		//for(int k =0; k< sm->sizePsi+1; k++)
-	//		sm->w[k]=.0001;
+		double* w = sm->w;
+//		printf("Total indice %d\n", total_indices);
 		
-		memcpy(w, sm->w, sizeof(double)*sm->sizePsi+1);
 
 		int factor = 20;
 		int offset = 1;
@@ -734,12 +730,10 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		LATENT_VAR h_temp;
 		h_temp.position_x_pixel=ourbox.left; /* starting position of object */
     h_temp.position_y_pixel=ourbox.top;
-    h_temp.bbox_width_pixel=(ourbox.right-ourbox.left+1);
-    h_temp.bbox_height_pixel=(ourbox.bottom-ourbox.top+1);
+    h_temp.bbox_width_pixel=(ourbox.right-ourbox.left);
+    h_temp.bbox_height_pixel=(ourbox.bottom-ourbox.top);
 //		printf("their bounding box is left %d right %d top %d, bottom %d\n", ourbox.left, ourbox.right, ourbox.top, ourbox.bottom);
 
-//		printf("bounding box is x %d y %d width %d, height %d\n", h_temp.position_x_pixel,h_temp.position_y_pixel,
-//			h_temp.bbox_width_pixel, h_temp.bbox_height_pixel);
 //		printf("given width %d given height %d num points %d\n",  1+(int)(x.width_pixel/factor),  1+(int)(x.height_pixel/factor), curr_point);
 		double ourscore = compute_w_T_psi(&x, h_temp, y_curr.label,cached_images, NULL, sm, sparm);
 
@@ -751,13 +745,20 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		}
 		gettimeofday(&end_time, NULL);
 		double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
-//		printf("ESS got %f and we got %f\n", ourbox.score, ourscore-sm->w[1]);
-//		assert(( (ourscore - sm->w[1] - ourbox.score < 1e-1)&&(ourscore -sm->w[1]- ourbox.score > -1e-1)));
+		printf("ESS took %f \n", microseconds/1000);
+		/*if(!( (ourscore - sm->w[1] - ourbox.score < 1e-5)&&(ourscore -sm->w[1]- ourbox.score > -1e-5)))
+		{
+			printf("ESS got score %f and we got score %f\n", ourbox.score, ourscore-sm->w[1]);
+			printf("bounding box is x %f y %f width %f, height %f\n", h_temp.position_x_pixel,h_temp.position_y_pixel,
+				h_temp.bbox_width_pixel, h_temp.bbox_height_pixel);
+			printf("image width and height is %d %d name %s\n", x.width_pixel, x.height_pixel, x.image_path);
+			printf("Num descriptors %d\n", curr_point);
+		}*/
+		//assert(( (ourscore - sm->w[1] - ourbox.score < 1e-1)&&(ourscore -sm->w[1]- ourbox.score > -1e-1)));
 		//assert(( (ourbox.score - truescore < .001)&&(ourbox.score - truescore > -.001)));
 		free(argxpos);
 		free(argypos);
 		free(argclst);
-		free(w);
 	}
 }
 

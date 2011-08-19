@@ -64,7 +64,7 @@ static int verbose = 0;
 
 
 //find the biggest number of the form c*base + 1 less than or equal to  input
-int round_down(int input, int base)
+inline int round_down(int input, int base)
 {
 	if(base* ((int)(input/base))+1 <= input)
 		return base* ((int)(input/base))+1;
@@ -72,7 +72,7 @@ int round_down(int input, int base)
 		return base* ((int)(input/base))+1-base;
 }
 
-int round_strictly_up(int input, int base)
+inline int round_strictly_up(int input, int base)
 {
 	if(base* ((int)(input/base))+1 > input)
 		return base* ((int)(input/base))+1;
@@ -81,17 +81,9 @@ int round_strictly_up(int input, int base)
 }
 
 static int extract_split_and_insert(sstate_heap *pH,PyramidQualityFunction quality_bound,int factor) {
-		struct timeval start_point;
-		struct timeval start_point_after_queue;
-		struct timeval halfway_point;	
-		struct timeval end_time;	
-		gettimeofday(&start_point, NULL);
 
     // step 1) find the most promising candidate region 
     const sstate* curstate = pH->top();
-		gettimeofday(&start_point_after_queue, NULL);
-		double microseconds = 1e6 * (start_point_after_queue.tv_sec - start_point.tv_sec) + (start_point_after_queue.tv_usec - start_point.tv_usec);
-		printf("Queue time %f\n", microseconds);
 //		printf("best upper bound is %f\n", curstate->upper);
     // step 2a) check if the stop criterion is reached
     const int splitindex = curstate->maxindex();
@@ -114,9 +106,6 @@ static int extract_split_and_insert(sstate_heap *pH,PyramidQualityFunction quali
 //		printf("We split %d [%d, %d] into [%d, %d] and [%d, %d]\n", splitindex,curstate->only[splitindex], curstate->only[splitindex],newstate0->only[splitindex],newstate0->only[splitindex], newstate1->only[splitindex], newstate1->only[splitindex]);
     // the old state isn't needed anymore
     delete curstate; curstate=NULL;
-		gettimeofday(&halfway_point, NULL);
-		microseconds = 1e6 * (halfway_point.tv_sec - start_point_after_queue.tv_sec) + (halfway_point.tv_usec - start_point_after_queue.tv_usec);
-		printf("Split time %f\n", microseconds);
     
     // step 3&4) calculate upper bounds for the parts and reinject them 
     if ( newstate0->islegal() ) {
@@ -136,9 +125,6 @@ static int extract_split_and_insert(sstate_heap *pH,PyramidQualityFunction quali
 		{
 			free(newstate1);
 		}
-		gettimeofday(&end_time, NULL);
-		microseconds = 1e6 * (end_time.tv_sec - halfway_point.tv_sec) + (end_time.tv_usec - halfway_point.tv_usec);
-		printf("Push time %f\n", microseconds);
     
     // no error, but also no convergence, yet
     return 0;
@@ -201,18 +187,20 @@ Box pyramid_search(int argnumpoints, int argwidth, int argheight,
 		int upper_x =  round_down(argwidth-1,factor);
 		int upper_y = round_down(argheight-1,factor);
 
+		struct timeval start_time;
+		gettimeofday(&start_time, NULL);
+		struct timeval end_time;
+		int counter = 0;
 // main loop. Iterate extract/split/evaluate/reinsert until convergence or forced exit
-    long counter=1;
-		double SCALE_CONST = 4;
 		for(int curr_lower_y = 1; curr_lower_y<=upper_y; curr_lower_y+=factor)
 		{
-			for(int curr_upper_y=20+curr_lower_y; curr_upper_y <= upper_y ; curr_upper_y+=factor)
+			for(int curr_upper_y=curr_lower_y; curr_upper_y <= upper_y ; curr_upper_y+=factor)
 			{
 				for(int curr_lower_x = 1; curr_lower_x<=upper_x; curr_lower_x+=factor)
 				{
 					int y_diff = (curr_upper_y - curr_lower_y);
 					
-					for(int curr_upper_x=20+curr_lower_x+(int)((y_diff)/SCALE_CONST); (curr_upper_x <= upper_x) && (curr_upper_x-curr_lower_x)< y_diff * SCALE_CONST; curr_upper_x+=factor)
+					for(int curr_upper_x=curr_lower_x; (curr_upper_x <= upper_x); curr_upper_x+=factor)
 					{
 						
 						single->only[0] = curr_lower_x;
@@ -231,7 +219,9 @@ Box pyramid_search(int argnumpoints, int argwidth, int argheight,
 				}
 			}
 		}
-
+		gettimeofday(&end_time, NULL);
+		double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
+		printf("We evaluated each guy in on average micro seconds %f %d\n", microseconds/counter, counter);
 /*    while ((extract_split_and_insert(&H,quality_bound,factor) >= 0) && (counter < maxiterations)) {
         counter++;
 				printf("Whats the count %d\n", counter);

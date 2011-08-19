@@ -28,17 +28,9 @@
 #include "ess.hh"
 #include "quality_box.hh"
 
-void BoxQualityFunction::create_integral_matrices(const std::vector<double> &raw_matrix) {
-    pos_matrix.clear();
-    pos_matrix.resize( raw_matrix.size() );
-    neg_matrix.clear();
-    neg_matrix.resize( raw_matrix.size() );
+void BoxQualityFunction::create_integral_matrices(double* raw_matrix) {
 
-    // split the weight matrix into positive and negative entries
-    for (unsigned int i=0; i < raw_matrix.size(); i++) {
-        double val = raw_matrix[i];
-        pos_matrix[i] = val;
-    }
+		pos_matrix=raw_matrix;
 
     // calculate integral image verically
     for (int j=1; j < height; j++) {
@@ -64,7 +56,7 @@ void BoxQualityFunction::setup(int argnumpoints, int argwidth, int argheight,
     height = argheight;
     
     // transform (x,y,c),weight into integral image representation
-    std::vector<double> raw_matrix(argwidth*argheight);
+    double* raw_matrix=(double*)calloc(argwidth*argheight,sizeof(double));
 
     // for sum-of-scores, the data is a vector of cluster weights
     const double* argweight = reinterpret_cast<double*>(argdata);
@@ -74,13 +66,17 @@ void BoxQualityFunction::setup(int argnumpoints, int argwidth, int argheight,
         const int x = static_cast<int>(argxpos[k])+1;
         const int y = static_cast<int>(argypos[k])+1;
         const int c = static_cast<int>(argclst[k]);
-        raw_matrix[off(x,y)] += argweight[c];
+				if(c<0 || c>25000)
+					printf("C is %d\n", c);
+				double temp = argweight[c];
+        raw_matrix[off(x,y)] += temp;
     }
     create_integral_matrices(raw_matrix);
     return;
 }
 
 void BoxQualityFunction::cleanup() {
+		free(pos_matrix);
     return;
 }
 

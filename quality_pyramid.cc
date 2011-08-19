@@ -74,6 +74,8 @@ void PyramidQualityFunction::setup(int argnumpoints, int argwidth, int argheight
 }
 
 void PyramidQualityFunction::cleanup() {
+		for(int i = 0 ; i < cell_quality.size(); i++)
+			cell_quality[i].cleanup();
     return;
 }
 

@@ -35,8 +35,7 @@ class BoxQualityFunction : public QualityFunction {
 
     private:
         int width,height;
-        std::vector<double> pos_matrix;
-        std::vector<double> neg_matrix;
+        double* pos_matrix;
 
         // convert (x,y) into 1d index
         inline unsigned int off(unsigned int x, unsigned int y) const {
@@ -46,7 +45,7 @@ class BoxQualityFunction : public QualityFunction {
         // calculate score of a box from integral image
         double rect_val(unsigned int xl, unsigned int yl, 
                         unsigned int xh, unsigned int yh,
-                        const std::vector<double> &matrix) const {
+                        const double* matrix) const {
             //if ( (xl > xh) || (yl > yh)) return 0.;
 
             return matrix[off(xh,yh)] - matrix[off(xh,yl-1)]
@@ -61,7 +60,7 @@ class BoxQualityFunction : public QualityFunction {
 
         // create separate integral images for positive and negative part
         // of the original weight matrix
-        void create_integral_matrices(const std::vector<double> &raw_matrix);
+        void create_integral_matrices(double* raw_matrix);
 
     public:
         void setup(int argnumpoints, int argwidth, int argheight, 

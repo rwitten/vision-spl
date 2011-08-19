@@ -37,7 +37,7 @@
 #define STOP_PREC 1E-2
 #define UPDATE_BOUND 3
 #define MAX_CURRICULUM_ITER 10
-#define NUM_THREADS 1
+#define NUM_THREADS 0
 #define MAX_OUTER_ITER 20
 
 #define MAX(x,y) ((x) < (y) ? (y) : (x))
@@ -260,7 +260,10 @@ void* handle_fmvc(void* inputa)
              pthread_mutex_unlock(background->completed_lock);
 	    }
     }
-   pthread_exit(0);
+   if(NUM_THREADS)
+	   pthread_exit(0);
+	 else
+	 	 return NULL;
 }
 
 
@@ -295,10 +298,17 @@ void find_most_violated_constraint_parallel(int m,EXAMPLE* ex_list, LABEL* ybar_
         pthread_create(&mythreads[i], NULL, handle_fmvc, &background);
     }
 
-    for(i=0; i<NUM_THREADS;i++)
-    {
-        pthread_join(mythreads[i],NULL);
-    }
+    if(NUM_THREADS)
+		{
+			for(i=0; i<NUM_THREADS;i++)
+			{
+					pthread_join(mythreads[i],NULL);
+			}
+		}
+		else
+		{
+			handle_fmvc(&background);
+		}
 
 /*    int more_work_to_do = 1;
     while(more_work_to_do)
@@ -617,7 +627,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
   new_constraint = find_cutting_plane(ex, fycache, &margin, m, cached_images, sm, sparm, valid_examples, valid_example_kernels);
  	value = margin - sprod_ns(w, new_constraint);
 	while((value>threshold+epsilon)&&(iter<MAX_ITER)) {
-		printf("We need to get %f less than %f\n", value, threshold+epsilon);
+		printf("We need to get %f less than %f on iter %d\n", value, threshold+epsilon, iter);
 		iter+=1;
 		size_active+=1;
 

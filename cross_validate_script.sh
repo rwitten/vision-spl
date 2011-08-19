@@ -5,9 +5,9 @@ names[3]='splplus'
 base_dir=`pwd`
 cd $base_dir
 
-for randomness in 1
+for randomness in 1 
 do
-	for classfold in 'small'
+	for classfold in 'small' 'car'
 	do
 		for l in 0 1
 		do
@@ -21,11 +21,11 @@ do
 			commands_test[2]=" --j $j --l $l "
 			commands_test[3]=" --j $j --l $l "
 			
-			for C in 501
+			for C in 500 1000 5000 10000
 			do
 				for algorithm in  1 
 				do
-					for foldnum in 1 
+					for foldnum in 1
 					do
 						fold=${classfold}_${foldnum}
 						if [  -f ./output/${names[$algorithm]}${C}_${l}_${fold}_$randomness.starttime ]; then
@@ -51,8 +51,8 @@ do
 						echo $command_train_matlab >> $script_name
 						echo $command_endtimestamp >> $script_name
 						chmod +x $script_name
-#						echo "Posting job " ${base_dir}/${script_name}
-#						~/bin/appendJob.pl ${base_dir}/${script_name}
+						echo "Posting job " ${base_dir}/${script_name}
+						~/bin/appendJob.pl ${base_dir}/${script_name}
 					done
 				done
 			done
