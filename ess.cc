@@ -221,7 +221,7 @@ Box pyramid_search(int argnumpoints, int argwidth, int argheight,
 		}
 		gettimeofday(&end_time, NULL);
 		double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
-		printf("We evaluated each guy in on average micro seconds %f %d\n", microseconds/counter, counter);
+//		printf("We evaluated each guy in on average micro seconds %f %d\n", microseconds/counter, counter);
 /*    while ((extract_split_and_insert(&H,quality_bound,factor) >= 0) && (counter < maxiterations)) {
         counter++;
 				printf("Whats the count %d\n", counter);

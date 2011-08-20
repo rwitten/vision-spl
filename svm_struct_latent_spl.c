@@ -32,12 +32,12 @@
 
 
 #define ALPHA_THRESHOLD 1E-14
-#define IDLE_ITER 200
-#define CLEANUP_CHECK 500
+#define IDLE_ITER 100
+#define CLEANUP_CHECK 200
 #define STOP_PREC 1E-2
 #define UPDATE_BOUND 3
 #define MAX_CURRICULUM_ITER 10
-#define NUM_THREADS 0
+#define NUM_THREADS 12
 #define MAX_OUTER_ITER 20
 
 #define MAX(x,y) ((x) < (y) ? (y) : (x))
@@ -364,7 +364,8 @@ SVECTOR* find_cutting_plane(EXAMPLE *ex, SVECTOR **fycache, double *margin, long
   gettimeofday(&start_time, NULL);
   find_most_violated_constraint_parallel(m,ex, ybar_list, hbar_list, cached_images,valid_examples, valid_example_kernels,  sm, sparm);
   gettimeofday(&finish_time, NULL);
-  //double microseconds = 1e6 * (int)(finish_time.tv_sec - start_time.tv_sec) + (int)(finish_time.tv_usec - start_time.tv_usec);
+  double microseconds = 1e6 * (int)(finish_time.tv_sec - start_time.tv_sec) + (int)(finish_time.tv_usec - start_time.tv_usec);
+	printf("FMVC took %f milliseconds\n", microseconds/1000);
 
   for (i=0;i<m;i++) {
 

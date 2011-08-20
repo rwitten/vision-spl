@@ -746,6 +746,7 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		gettimeofday(&end_time, NULL);
 		double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
 		printf("ESS took %f \n", microseconds/1000);
+		printf("ESS got score %f and we got score %f\n", ourbox.score, ourscore-sm->w[1]);
 		/*if(!( (ourscore - sm->w[1] - ourbox.score < 1e-5)&&(ourscore -sm->w[1]- ourbox.score > -1e-5)))
 		{
 			printf("ESS got score %f and we got score %f\n", ourbox.score, ourscore-sm->w[1]);
