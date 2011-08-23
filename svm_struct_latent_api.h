@@ -41,6 +41,7 @@ void free_struct_sample(SAMPLE s);
 void parse_struct_parameters(STRUCT_LEARN_PARM *sparm);
 void copy_label(LABEL l1, LABEL *l2);
 void copy_latent_var(LATENT_VAR lv1, LATENT_VAR *lv2);
+int is_equal_lv(LATENT_VAR lv1, LATENT_VAR lv2);
 void print_latent_var(PATTERN x, LATENT_VAR h, FILE *flatent);
 void read_latent_var(LATENT_VAR *h, FILE *finlatent);
 void print_label(LABEL l, FILE	*flabel);

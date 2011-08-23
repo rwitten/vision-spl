@@ -1238,11 +1238,13 @@ int main(int argc, char* argv[]) {
             print_latent_var(ex[i].x, ex[i].h,flatent);
             int isValid = 1;
             int this_kernel;
-	        for(this_kernel=0;this_kernel<sm.num_kernels;this_kernel++){
+	    for(this_kernel=0;this_kernel<sm.num_kernels;this_kernel++){
 				if(!valid_example_kernels[i][this_kernel])
-                    isValid=0;
+				{
+          isValid=0;
+				}
 			}
-            nValid+=isValid;
+      nValid+=isValid;
 		}
 		fprintf(fexamples,"\n"); fflush(fexamples);
 		fprintf(flatent,"\n"); fflush(flatent);
@@ -1262,25 +1264,22 @@ int main(int argc, char* argv[]) {
     
     stop_crit = (decrement<C*epsilon);
 		/* additional stopping criteria */
-		if(nValid < m)
-        {
-            printf("NOT STOPPING BECAUSE OF NVALIDS\n");
-			stop_crit = 0;
-        }
-		if(!latent_update)
-        {
-            printf("NOT STOPPING BECAUSE OF LATENT UPDATE\n");
-			stop_crit = 0;
-        } 
+		 
     /* impute latent variable using updated weight vector */
+		latent_update=0;
 		if(nValid) {
         	for (i=0;i<m;i++) {
-           	    free_latent_var(ex[i].h);
+								LATENT_VAR h_temp = ex[i].h;
       	        ex[i].h = infer_latent_variables(ex[i].x, ex[i].y, cached_images, &sm, &sparm);
+           	    free_latent_var(h_temp);
     	    }
-			latent_update++;
 		}
 
+		if(nValid < m)
+    {
+      printf("NOT STOPPING BECAUSE OF NVALIDS\n");
+			stop_crit = 0;
+    }
     /* re-compute feature vector cache */
     for (i=0;i<m;i++) {
       free_svector(fycache[i]);
@@ -1298,7 +1297,6 @@ int main(int argc, char* argv[]) {
 
     outer_iter++;
         for(i=0;i<sm.num_kernels;i++) {
-            printf("!!!!!!!!!!!!!!!!!!! %f\n", spl_factor);
 						if(init_spl_weight)
 						{
 							spl_weight_pos[i] += spl_factor;
@@ -1353,7 +1351,7 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
   learn_parm->maxiter=20000;
   learn_parm->svm_maxqpsize=100;
   learn_parm->svm_c=100.0;
-  learn_parm->eps=0.001;
+  learn_parm->eps=0.01;
   learn_parm->biased_hyperplane=12345; /* store random seed */
   learn_parm->remove_inconsistent=10; 
   kernel_parm->kernel_type=0;

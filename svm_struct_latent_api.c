@@ -745,8 +745,8 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		}
 		gettimeofday(&end_time, NULL);
 		double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
-		printf("ESS took %f \n", microseconds/1000);
-		printf("ESS got score %f and we got score %f\n", ourbox.score, ourscore-sm->w[1]);
+//		printf("ESS took %f \n", microseconds/1000);
+//		printf("ESS got score %f and we got score %f\n", ourbox.score, ourscore-sm->w[1]);
 		/*if(!( (ourscore - sm->w[1] - ourbox.score < 1e-5)&&(ourscore -sm->w[1]- ourbox.score > -1e-5)))
 		{
 			printf("ESS got score %f and we got score %f\n", ourbox.score, ourscore-sm->w[1]);
@@ -763,7 +763,21 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 	}
 }
 
-
+int thresh_equal(double one, double two)
+{
+	if( (one -two < 100) && (two - one < 100))
+		return 1;
+	else
+		return 0;
+}
+int is_equal_lv(LATENT_VAR lv1, LATENT_VAR lv2)
+{
+	if(thresh_equal(lv1.position_x_pixel,lv2.position_x_pixel) && thresh_equal(lv1.position_y_pixel,lv2.position_y_pixel)
+		&& thresh_equal(lv1.bbox_width_pixel,lv2.bbox_width_pixel) && thresh_equal(lv1.bbox_height_pixel,lv2.bbox_height_pixel))
+			return 1;
+	else
+		return 0;
+}
 
 double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int impute) {
 /*
@@ -884,7 +898,7 @@ LATENT_VAR infer_latent_variables(PATTERN x, LABEL y, IMAGE_KERNEL_CACHE ** cach
 
     return h;
 	}
-	else {
+	/*else {
 		assert(y.label==1);
 		h.position_x_pixel = x.gt_x_pixel;
 		h.position_y_pixel = x.gt_y_pixel;
@@ -892,21 +906,16 @@ LATENT_VAR infer_latent_variables(PATTERN x, LABEL y, IMAGE_KERNEL_CACHE ** cach
 		h.bbox_height_pixel = x.gt_height_pixel;
 
     return h;
-	}
+	}*/
 
-/*	double MAX_SCORE_ATTAINED = -DBL_MAX;
-	int * valid_kernels = calloc(sm->num_kernels, sizeof(int));
-	int l;
-	for ( l = 0; l < sm->num_kernels; ++l) {
-		valid_kernels[l] = 1;
-	}
+	double MAX_SCORE_ATTAINED = -DBL_MAX;
 	LABEL garbage; //will get set to whatever the variable y holds.
 	garbage.label=0;
-	compute_highest_scoring_latents(x,y,cached_images,valid_kernels,sm,sparm,&MAX_SCORE_ATTAINED,&h,&garbage, y);
+	compute_highest_scoring_latents(x,y,cached_images,NULL,sm,sparm,&MAX_SCORE_ATTAINED,&h,&garbage, y);
 
 	assert(garbage.label==y.label);
 
-  return(h); */
+  return(h); 
 }
 
 
