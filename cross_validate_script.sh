@@ -7,15 +7,15 @@ cd $base_dir
 
 for randomness in 1 
 do
-	for classfold in 'small' 
+	for classfold in 'car' 
 	do
-		for foldnum in 1
+		for foldnum in 1 2
 		do
-			for C in 1000
+			for C in 100 1000 10000 50000
 			do
-				for l in 0 1
+				for l in 0
 				do
-					for algorithm in  1 2 3 
+					for algorithm in  1 
 					do
 						num_neg=`cat data/train.${classfold}_1.txt | grep ' 0 ' | wc -l`
 						num_pos=`cat data/train.${classfold}_1.txt | grep ' 1 ' | wc -l`
@@ -50,8 +50,8 @@ do
 							echo "Skipping " ./output/${names[$algorithm]}${C}_${l}_${fold}_$randomness
 							continue
 						fi
-#						echo "Posting job " ${base_dir}/${script_name}
-#						~/bin/appendJob.pl ${base_dir}/${script_name}
+						echo "Posting job " ${base_dir}/${script_name}
+						~/bin/appendJob.pl ${base_dir}/${script_name}
 					done
 				done
 			done

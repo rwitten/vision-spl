@@ -202,19 +202,22 @@ Box pyramid_search(int argnumpoints, int argwidth, int argheight,
 					
 					for(int curr_upper_x=curr_lower_x; (curr_upper_x <= upper_x); curr_upper_x+=factor)
 					{
-						
-						single->only[0] = curr_lower_x;
-						single->only[1] = curr_lower_y;
-						single->only[2] = curr_upper_x;
-						single->only[3] = curr_upper_y;
-						single->upper = quality_bound.upper_bound(single);
-						if(single->upper > best->upper)
+					  int x_diff = (curr_upper_x - curr_lower_x);
+						if( (x_diff > y_diff) && (2*y_diff>x_diff) &&(x_diff>30) && (y_diff>30))
 						{
-							sstate* temp = best;
-							best = single;
-							single = temp;
+							single->only[0] = curr_lower_x;
+							single->only[1] = curr_lower_y;
+							single->only[2] = curr_upper_x;
+							single->only[3] = curr_upper_y;
+							single->upper = quality_bound.upper_bound(single);
+							if(single->upper > best->upper)
+							{
+								sstate* temp = best;
+								best = single;
+								single = temp;
+							}
+							counter++;
 						}
-						counter++;
 					}
 				}
 			}
