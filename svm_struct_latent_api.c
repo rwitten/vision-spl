@@ -694,12 +694,16 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		int total_indices = 0;
 
 		for(int i = 0; i< sm->num_kernels;i++)
-			total_indices += cached_images[x.example_id][i].num_points;
+		{
+			if((!valid_kernels) || valid_kernels[i])
+				total_indices += cached_images[x.example_id][i].num_points;
+		}
 
 		double* argxpos = (double*)malloc(sizeof(double)*total_indices);
 		double* argypos = (double*)malloc(sizeof(double)*total_indices);
 		double* argclst = (double*)malloc(sizeof(double)*total_indices);
 		double* w = sm->w;
+	
 //		printf("Total indice %d\n", total_indices);
 		
 
@@ -708,20 +712,24 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		int curr_point = 0;
 		for(int j = 0; j < sm->num_kernels;j++)
 		{
-			for(int i = 0 ; i<cached_images[x.example_id][j].num_points;i++)
+			if((!valid_kernels) || valid_kernels[j])
 			{
-				argxpos[curr_point] = (cached_images[x.example_id][j].points_and_descriptors[i].x);
-				argypos[curr_point] = (cached_images[x.example_id][j].points_and_descriptors[i].y);
-				argclst[curr_point] = cached_images[x.example_id][j].points_and_descriptors[i].descriptor+offset;
-				assert(argclst[curr_point]>1);
-				assert(argclst[curr_point]<sm->sizePsi+1);
-				curr_point++;
+				for(int i = 0 ; i<cached_images[x.example_id][j].num_points;i++)
+				{
+					argxpos[curr_point] = (cached_images[x.example_id][j].points_and_descriptors[i].x);
+					argypos[curr_point] = (cached_images[x.example_id][j].points_and_descriptors[i].y);
+					argclst[curr_point] = cached_images[x.example_id][j].points_and_descriptors[i].descriptor+offset;
+					assert(argclst[curr_point]>1);
+					assert(argclst[curr_point]<sm->sizePsi+1);
+					curr_point++;
+				}
 			}
 			offset += sm->kernel_sizes[j];
 		}
 		int solvedExactly=1;
 		assert(curr_point == total_indices);
 		int N = sparm->do_spm ? 2 : 1;
+
 		Box ourbox = pyramid_search(total_indices, 1+(int)(x.width_pixel), 1+(int)(x.height_pixel),
 										 argxpos, argypos, argclst,
 											sm->sizeSinglePsi, N, w,
@@ -735,7 +743,7 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 //		printf("their bounding box is left %d right %d top %d, bottom %d\n", ourbox.left, ourbox.right, ourbox.top, ourbox.bottom);
 
 //		printf("given width %d given height %d num points %d\n",  1+(int)(x.width_pixel/factor),  1+(int)(x.height_pixel/factor), curr_point);
-		double ourscore = compute_w_T_psi(&x, h_temp, y_curr.label,cached_images, NULL, sm, sparm);
+		double ourscore = compute_w_T_psi(&x, h_temp, y_curr.label,cached_images, valid_kernels, sm, sparm);
 
 		if(ourscore+loss>*max_score)
 		{
@@ -744,7 +752,7 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 			*h_best = h_temp;
 		}
 		gettimeofday(&end_time, NULL);
-		double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
+//		double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
 //		printf("ESS took %f \n", microseconds/1000);
 //		printf("ESS got score %f and we got score %f\n", ourbox.score, ourscore-sm->w[1]);
 		/*if(!( (ourscore - sm->w[1] - ourbox.score < 1e-5)&&(ourscore -sm->w[1]- ourbox.score > -1e-5)))
@@ -836,13 +844,23 @@ void find_most_violated_constraint_marginrescaling(PATTERN x, LATENT_VAR hstar, 
 	//make explicit the idea that (y, hstar) is what's returned if the constraint is not violated
 	initialize_most_violated_constraint_search(x, hstar, y, ybar, hbar, &max_score, cached_images, valid_kernels, sm, sparm);
 
-	for(cur_class = 0; cur_class<sparm->n_classes;cur_class++)
+	int isValid = 0;
+	for(int i = 0 ; i < sm->num_kernels;i++)
 	{
-		LABEL y_curr;
-		y_curr.label = cur_class;
-		if(cur_class != y.label)
+		if(valid_kernels[i])
+			isValid = 1;
+	}
+
+	if(isValid)
+	{
+		for(cur_class = 0; cur_class<sparm->n_classes;cur_class++)
 		{
-			compute_highest_scoring_latents(x,y,cached_images,valid_kernels,sm,sparm,&max_score,hbar,ybar,y_curr);
+			LABEL y_curr;
+			y_curr.label = cur_class;
+			if(cur_class != y.label)
+			{
+				compute_highest_scoring_latents(x,y,cached_images,valid_kernels,sm,sparm,&max_score,hbar,ybar,y_curr);
+			}
 		}
 	}
 	return;

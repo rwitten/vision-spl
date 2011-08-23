@@ -124,8 +124,7 @@ double print_all_scores(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CAC
 		continue;
     find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, valid_example_kernels[i], sm, sparm);
     /* get difference vector */
-    fy = copy_svector(fycache[i]);
-    //zero_svector_parts(valid_example_kernels[i], fy,sm);
+    fy = psi(ex[i].x,ex[i].y,ex[i].h,cached_images, valid_example_kernels[i],sm,sparm);
     fybar = psi(ex[i].x,ybar,hbar,cached_images,valid_example_kernels[i],sm,sparm);
     lossval = loss(ex[i].y,ybar,hbar,sparm);
     printf("%f\n",lossval+sprod_ns(sm->w,fybar)-sprod_ns(sm->w,fy));
@@ -183,8 +182,7 @@ double current_obj_val(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CACH
 			continue;
     find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, valid_example_kernels[i], sm, sparm);
     /* get difference vector */
-    fy = copy_svector(fycache[i]);
-    //zero_svector_parts(valid_example_kernels[i], fy,sm);
+    fy = psi(ex[i].x,ex[i].y,ex[i].h,cached_images, valid_example_kernels[i],sm,sparm);
     fybar = psi(ex[i].x,ybar,hbar,cached_images,valid_example_kernels[i],sm,sparm);
     lossval = loss(ex[i].y,ybar,hbar,sparm);
 
@@ -374,8 +372,7 @@ SVECTOR* find_cutting_plane(EXAMPLE *ex, SVECTOR **fycache, double *margin, long
         }
 
     /* get difference vector */
-    fy = copy_svector(fycache[i]);
-    //zero_svector_parts(valid_example_kernels[i], fy,sm);
+    fy = psi(ex[i].x,ex[i].y,ex[i].h,cached_images, valid_example_kernels[i],sm,sparm);
     fybar = psi(ex[i].x,ybar_list[i],hbar_list[i],cached_images, valid_example_kernels[i],sm,sparm);
     lossval = loss(ex[i].y,ybar_list[i],hbar_list[i],sparm);
     free_label(ybar);
@@ -819,12 +816,11 @@ int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPL
         assert(spl_weight_pos<=0.0);
 		for (i=0;i<m;i++)
 			valid_examples[i] = 1;
-		printf("Hooray for CCCP\n");fflush(stdout);
+		printf("DOING CCCP\n");fflush(stdout);
 		return (m);
 	}
-	assert(0);
 	
-/*	printf("NO CCCP?\n");fflush(stdout);
+	printf("NOT DOING CCCP\n");fflush(stdout);
   int pos_count=0; long j;
 
 	sortStruct *slack = (sortStruct *) malloc(m*sizeof(sortStruct));
@@ -834,8 +830,7 @@ int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPL
 
 	for (i=0;i<m;i++) {
 	  find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, kernel_choice, sm, sparm);
-		fy = copy_svector(fycache[i]);
-    //zero_svector_parts(kernel_choice, fy, sm); 
+		fy = psi(ex[i].x,ex[i].y,ex[i].h,cached_images,kernel_choice,sm,sparm);
 		fybar = psi(ex[i].x,ybar,hbar,cached_images,kernel_choice,sm,sparm);
 		slack[i].index = i;
 		slack[i].val = loss(ex[i].y,ybar,hbar,sparm);
@@ -883,13 +878,12 @@ int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPL
         valid_examples[slack[i].index]=1;
     }
 
-	for (i=0; i<pos_count;i++)
-		printf("%d ", valid_examples[i]);
-	printf("\n");
-    nValid = pos_cutoff + (neg_cutoff-pos_count);
+	//for (i=0; i<pos_count;i++)
+//		printf("%d ", valid_examples[i]);
+//	printf("\n");
+  nValid = pos_cutoff + (neg_cutoff-pos_count);
 
-	free(slack);*/
-	int nValid = 0;
+	free(slack);
 	return nValid;
 }
 
@@ -910,15 +904,15 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
     int* posInvalids = (int*)(calloc(sm->num_kernels,sizeof(int)));
     int* posValids = (int*)(calloc(sm->num_kernels, sizeof(int)));
 
-	int *prev_valid_examples = (int *) malloc(m*sizeof(int));
+		int *prev_valid_examples = (int *) malloc(m*sizeof(int));
     int** prev_valid_example_kernels=(int**) malloc(m*sizeof(int*));
 
     for(i = 0; i<m;i++)
     {
-        prev_valid_examples[i]=1;
-        prev_valid_example_kernels[i] = (int*)malloc(sm->num_kernels*sizeof(int));
-        for(k=0; k<sm->num_kernels;k++)
-            prev_valid_example_kernels[i][k] = 1;
+			prev_valid_examples[i]=1;
+			prev_valid_example_kernels[i] = (int*)malloc(sm->num_kernels*sizeof(int));
+			for(k=0; k<sm->num_kernels;k++)
+					prev_valid_example_kernels[i][k] = 1;
 		valid_examples[i]=0;
     }
 
@@ -928,24 +922,28 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
     for (i=0;i<sm->num_kernels;i++)
     {
       kernel_info[i] = 1;
-	  for(j =0; j<m; j++)
-         this_kernels_examples[j]=0;
+			for(j =0; j<m; j++)
+				this_kernels_examples[j]=0;
       posInvalids[i] = 0;
       posValids[i] = 0;
       nValids[i] = update_valid_examples(w, m, C, fycache, ex, cached_images, sm, sparm, this_kernels_examples,kernel_info, spl_weight_pos[i], spl_weight_neg[i],&posInvalids[i], &posValids[i]);
 
-        printf("%ldth kernel gives us %d valids %d of which are pos and %d of which are neg\n", i, nValids[i], posValids[i], nValids[i]-posValids[i] );  fflush(stdout);
-        for(j=0; j<m;j++) {
-            valid_example_kernels[j][i] = this_kernels_examples[j];
-	        if (this_kernels_examples[j]) { 
-	            valid_examples[j] = 1; // since at least one kernel is included for this example, this example is included
-	        }
-        }
-        kernel_info[i]=0;
+      printf("%ldth kernel gives us %d valids %d of which are pos and %d of which are neg\n", i, nValids[i], posValids[i], nValids[i]-posValids[i] );  fflush(stdout);
+			printf("Kernels on are ");
+			for(j = 0 ; j<m ;j++)
+				printf("%d " , this_kernels_examples[j]);
+			printf("\n");
+			for(j=0; j<m;j++) {
+					valid_example_kernels[j][i] = this_kernels_examples[j];
+				if (this_kernels_examples[j]) { 
+						valid_examples[j] = 1; // since at least one kernel is included for this example, this example is included
+				}
+			}
+			kernel_info[i]=0;
     }
 
     for (i=0;i<sm->sizePsi+1;i++)
-            w[i] = 0.0;
+    	w[i] = 0.0;
 
 //	for(i=0; i< m; i++)
 //	{
@@ -965,10 +963,6 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
                   //relaxed_primal_obj = stochastic_subgradient_descent(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, sm, sparm, valid_examples);
      }
 
-//	for(i=0; i< m; i++)
-//	{
-//		ex[i].x.example_cost = (ex[i].y.label ? sparm->pos_neg_cost_ratio : 1.0);
-//	}
 	
 
      double primal_obj;
@@ -1261,9 +1255,8 @@ int main(int argc, char* argv[]) {
 		else {
 			printf("decrement (outer iter): N/A\n"); fflush(stdout);
 		}
-    
-    stop_crit = (decrement<C*epsilon);
-		/* additional stopping criteria */
+   
+	/* additional stopping criteria */
 		 
     /* impute latent variable using updated weight vector */
 		latent_update=0;
@@ -1274,7 +1267,13 @@ int main(int argc, char* argv[]) {
            	    free_latent_var(h_temp);
     	    }
 		}
-
+	 	stop_crit = 1;
+    if(decrement>C*epsilon)
+		{
+			printf("NOT STOPPING BECAUSE OF DESCENT\n");
+			stop_crit = 0;
+		}
+	
 		if(nValid < m)
     {
       printf("NOT STOPPING BECAUSE OF NVALIDS\n");
