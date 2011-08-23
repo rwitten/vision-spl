@@ -10,10 +10,10 @@ ESSFLAGS = $(CFLAGS) -c
 #LDFLAGS= -O3
 #LDFLAGS = -O3 -pg
 LIBS= -lm
-MOSEK_H= /afs/cs.stanford.edu/u/pawan/Project/mosek/6/tools/platform/linux64x86/h/
+MOSEK_H= /afs/cs.stanford.edu/u/rwitten/scratch/mosek/6/tools/platform/linux64x86/h/
 #MSKLINKFLAGS= -lirc -lguide -limf -lsvml -lunwind -lmosek64 -lpthread -lc -ldl -lm
 MSKLINKFLAGS= -lmosek64 -lpthread -lm
-MSKLIBPATH= /afs/cs.stanford.edu/u/pawan/Project/mosek/6/tools/platform/linux64x86/bin/
+MSKLIBPATH= /afs/cs.stanford.edu/u/rwitten/scratch/mosek/6/tools/platform/linux64x86/bin/
 SFMTPATH= ./SFMT-src-1.3.3
 
 all: ess svm_bbox_learn svm_bbox_classify

@@ -596,7 +596,7 @@ LATENT_VAR choose_subset(LATENT_VAR h, int subset,  STRUCT_LEARN_PARM *sparm)
 		else if(subset==3)
 		{
 			h_out.position_x_pixel = h.position_x_pixel;
-			h_out.position_y_pixel = h.position_y_pixel+h_out.bbox_height_pixel-1;
+			h_out.position_y_pixel = h.position_y_pixel+h_out.bbox_height_pixel;
 		}
 		else
 		{
@@ -702,7 +702,7 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		double* argxpos = (double*)malloc(sizeof(double)*total_indices);
 		double* argypos = (double*)malloc(sizeof(double)*total_indices);
 		double* argclst = (double*)malloc(sizeof(double)*total_indices);
-		double* w = sm->w;
+		double* w = &sm->w[2];
 	
 //		printf("Total indice %d\n", total_indices);
 		
@@ -718,9 +718,9 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 				{
 					argxpos[curr_point] = (cached_images[x.example_id][j].points_and_descriptors[i].x);
 					argypos[curr_point] = (cached_images[x.example_id][j].points_and_descriptors[i].y);
-					argclst[curr_point] = cached_images[x.example_id][j].points_and_descriptors[i].descriptor+offset;
-					assert(argclst[curr_point]>1);
-					assert(argclst[curr_point]<sm->sizePsi+1);
+					argclst[curr_point] = cached_images[x.example_id][j].points_and_descriptors[i].descriptor+offset-2;
+					assert(argclst[curr_point]>=0);
+					assert(argclst[curr_point]<sm->sizeSinglePsi);
 					curr_point++;
 				}
 			}
@@ -754,7 +754,8 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		gettimeofday(&end_time, NULL);
 //		double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
 //		printf("ESS took %f \n", microseconds/1000);
-//		printf("ESS got score %f and we got score %f\n", ourbox.score, ourscore-sm->w[1]);
+		//printf("ESS got score %f and we got score %f\n", ourbox.score, ourscore-sm->w[1]);
+		//assert((ourscore - sm->w[1] - ourbox.score < 1e-1)&&((-ourscore +sm->w[1])+ ourbox.score < 1e-1));
 		/*if(!( (ourscore - sm->w[1] - ourbox.score < 1e-5)&&(ourscore -sm->w[1]- ourbox.score > -1e-5)))
 		{
 			printf("ESS got score %f and we got score %f\n", ourbox.score, ourscore-sm->w[1]);
