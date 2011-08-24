@@ -62,7 +62,7 @@ typedef struct _sortStruct {
 	  int index;
 }  sortStruct;
 
-typedef struct latent_var {
+typedef struct latent_box {
   /*
     Type definition for latent variable h
   */
@@ -70,6 +70,10 @@ typedef struct latent_var {
 	double position_y_pixel;
 	double bbox_width_pixel;
 	double bbox_height_pixel;
+} LATENT_BOX;
+
+typedef struct latent_var {
+	LATENT_BOX* boxes;
 } LATENT_VAR;
 
 typedef struct example {
@@ -129,6 +133,8 @@ typedef struct struct_learn_parm {
 	int n_classes;
   int multi_kernel_spl;
 	int do_spm;
+	int do_hallucinate;
+	double prox_weight;
 } STRUCT_LEARN_PARM;
 
 typedef struct spl_variable_struct {

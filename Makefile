@@ -3,7 +3,7 @@
 CC=g++ -Wall 
 #CFLAGS= -g 
 #CFLAGS= -O3 -fomit-frame-pointer -ffast-math
-CFLAGS = -O3 -g
+CFLAGS = -O0 -g
 LD=g++ -Wall
 LDFLAGS= $(CFLAGS)
 ESSFLAGS = $(CFLAGS) -c

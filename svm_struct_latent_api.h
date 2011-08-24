@@ -40,11 +40,13 @@ void free_latent_var(LATENT_VAR h);
 void free_struct_sample(SAMPLE s);
 void parse_struct_parameters(STRUCT_LEARN_PARM *sparm);
 void copy_label(LABEL l1, LABEL *l2);
-void copy_latent_var(LATENT_VAR lv1, LATENT_VAR *lv2);
+void copy_latent_var(LATENT_VAR lv1, LATENT_VAR *lv2, STRUCTMODEL* sm);
 int is_equal_lv(LATENT_VAR lv1, LATENT_VAR lv2);
 void print_latent_var(PATTERN x, LATENT_VAR h, FILE *flatent);
 void read_latent_var(LATENT_VAR *h, FILE *finlatent);
 void print_label(LABEL l, FILE	*flabel);
 void fill_max_pool(PATTERN x, LATENT_VAR h, int kernel_ind, IMAGE_KERNEL_CACHE ** cached_images, WORD* words, int descriptor_offset, int * num_words, STRUCTMODEL * sm);
-void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, LATENT_VAR ourbox, int num_descriptors,int kernel_ind, WORD* words, int descriptor_offset, int * num_words, STRUCTMODEL * sm);
+void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, LATENT_BOX ourbox, int num_descriptors,int kernel_ind, WORD* words, int descriptor_offset, int * num_words, STRUCTMODEL * sm);
+LATENT_VAR make_latent_var(STRUCTMODEL* sm);
+
 #endif

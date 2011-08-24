@@ -69,7 +69,6 @@ int main(int argc, char* argv[]) {
 
   SAMPLE testsample;
   
-  LATENT_VAR h;
 
   /* read input parameters */
   read_input_parameters(argc,argv,testfile,modelfile,labelfile,latentfile,inlatentfile,scorefile,psiposfile,psinegfile,&log_psis,&sparm);
@@ -107,18 +106,21 @@ int main(int argc, char* argv[]) {
   for(i = 0; i < model.num_kernels; i++)
     valid_example_kernel[i] = 1;
   printf("IS PLANNING TO IMPUTE %d\n",impute);
+	assert(model.num_kernels==5);
   double total_example_weight = 0;
+  LATENT_VAR h = make_latent_var(&model);
   for (i=0;i<testsample.n;i++) {
-    if(finlatent) {
-        read_latent_var(&h,finlatent);
+//    if(finlatent) {
+//        read_latent_var(&h,finlatent);
         //printf("%d %d\n",h.position_x,h.position_y);
-    }
+//    }
     //printf("%f\n",sparm.C);
 		struct timeval start_time;
 		struct timeval finish_time;
 		gettimeofday(&start_time, NULL);
 
     double pos_score = classify_struct_example(testsample.examples[i].x,&y,&h,cached_images,&model,&sparm,impute);
+
 		gettimeofday(&finish_time, NULL);
 		double microseconds = 1e6 * (finish_time.tv_sec - start_time.tv_sec) + (finish_time.tv_usec - start_time.tv_usec);
     printf("This ESS call took %f milliseconds.\n", microseconds/1e3);
@@ -147,8 +149,8 @@ int main(int argc, char* argv[]) {
      fprintf(fscore, "%s %f\n", img_num_str, pos_score); fflush(fscore);
 
     free_label(y);
-    free_latent_var(h); 
   }
+	free_latent_var(h);	
 	fclose(flabel);
 	fclose(flatent);
     if(finlatent)
@@ -172,7 +174,7 @@ int main(int argc, char* argv[]) {
   }
 
   free_cached_images(cached_images, &model);
-  free_struct_sample(testsample);
+  //free_struct_sample(testsample);
   free_struct_model(model,&sparm);
 
   return(0);
