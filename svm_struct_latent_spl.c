@@ -712,16 +712,16 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
         for(j = 0; j < size_active; j++)
     G[j][j] -= eps/100.0;
     */
-		if(r >= 1293 && r <= 1296)
-		{
-			printf("r:%d. G might not be psd due to numerical errors.\n",r);
-			exit(1);
-		}
-		else if(r)
-		{
-			printf("Error %d in mosek_qp_optimize: Check ${MOSEKHOME}/${VERSION}/tools/platform/${PLATFORM}/h/mosek.h\n",r);
-			exit(1);
-		}
+    if(r >= 1293 && r <= 1296)
+    {
+        printf("r:%d. G might not be psd due to numerical errors.\n",r);
+        exit(1);
+    }
+    else if(r)
+    {
+        printf("Error %d in mosek_qp_optimize: Check ${MOSEKHOME}/${VERSION}/tools/platform/${PLATFORM}/h/mosek.h\n",r);
+        exit(1);
+    }
    	clear_nvector(w,sm->sizePsi+1);
    	for (j=0;j<size_active;j++) {
      	if (alpha[j] > C * ALPHA_THRESHOLD / (1.0 + 2.0 * sparm->prox_weight)) {
@@ -1415,7 +1415,6 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
     default: printf("\nUnrecognized option %s!\n\n",argv[i]);
       exit(0);
     }
- 
   }
   assert(*init_spl_weight > 0.0 || !struct_parm->multi_kernel_spl);
 
@@ -1426,6 +1425,7 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
     my_wait_any_key();
     exit(0);
   }
+
   strcpy (trainfile, argv[i]);
 
   if((i+1)<argc) {

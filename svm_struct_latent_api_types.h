@@ -18,6 +18,7 @@
 /************************************************************************/
 
 # include "svm_light/svm_common.h"
+#include <pthread.h>
 
 typedef struct pattern {
   /*

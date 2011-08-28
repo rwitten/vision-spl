@@ -26,9 +26,7 @@
 
 #define MAX_INPUT_LINE_LENGTH 10000
 #define DELTA 1
-#define BASE_DIR "/afs/cs.stanford.edu/u/rwitten/scratch/mkl_features/"
-#define SCRATCH_OUT "/afs/cs.stanford.edu/u/rwitten/scratch/mkl_scratch/"
-#define CATTED_FEATURES_DIR "/afs/cs.stanford.edu/u/rwitten/scratch/mkl_catted_features/data/"
+#define BASE_DIR "/Users/rafiwitten/scratch/mkl_features/"
 #define CONST_FILENAME_PART "_spquantized_1000_"
 #define CONST_FILENAME_SUFFIX ".mat"
 
@@ -53,8 +51,9 @@ int pad_cmp(const void * a, const void * b) {
 
 int get_sample_size(char * file) {
   int sample_size;
+  printf("WE're opening %s\n", file); fflush(stdout);
   FILE * fp = fopen(file, "r");
-	fscanf(fp, "%d\n", &sample_size);
+  fscanf(fp, "%d\n", &sample_size);
   fclose(fp);
   return sample_size;
 }

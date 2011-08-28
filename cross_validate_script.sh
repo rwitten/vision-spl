@@ -53,7 +53,7 @@ do
 								continue
 							fi
 							echo "Posting job " ${base_dir}/${script_name}
-							~/bin/appendJob.pl ${base_dir}/${script_name}
+#							~/bin/appendJob.pl ${base_dir}/${script_name}
 						done
 					done
 				done
