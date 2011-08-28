@@ -795,7 +795,7 @@ void compute_highest_scoring_latents_hallucinate(PATTERN x,LABEL y,IMAGE_KERNEL_
 		}
 		struct timeval end_time;
 		gettimeofday(&end_time, NULL);
-		double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
+		//double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
 //		printf("ESS (hallucinating) took %f \n", microseconds/1000);
 	}
 }
@@ -1163,7 +1163,7 @@ void parse_struct_parameters(STRUCT_LEARN_PARM *sparm) {
   sparm->n_classes = 2;
   sparm->pos_neg_cost_ratio = 1.0;
   sparm->C = 10000;
- 	sparm->prox_weight  = 0.1 ;
+  sparm->prox_weight  = 0.01 ;
   for (i=0;(i<sparm->custom_argc)&&((sparm->custom_argv[i])[0]=='-');i++) {
     switch ((sparm->custom_argv[i])[2]) {
       /* your code here */

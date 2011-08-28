@@ -339,7 +339,7 @@ SVECTOR* multadd_ss(SVECTOR *a, SVECTOR *b, double factor)
     }
     sumi->wnum=0;
 
-    vec=create_svector(sum,"",1.0);
+    vec=create_svector(sum,(char*)"",1.0);
     free(sum);
 
     return(vec);
@@ -378,7 +378,7 @@ SVECTOR* add_list_ss(SVECTOR *a)
   }
   else {
     empty[0].wnum=0;
-    sum=create_svector(empty,"",1.0);
+    sum=create_svector(empty,(char*)"",1.0);
   }
   return(sum);
 }
@@ -411,7 +411,7 @@ SVECTOR* add_list_ns(SVECTOR *a)
     for(f=a;f;f=f->next)  
       add_vector_ns(sum,f,f->factor);
 
-    vec=create_svector_n(sum,totwords,"",1.0);
+    vec=create_svector_n(sum,totwords,(char*)"",1.0);
     free(sum);
 
     return(vec);

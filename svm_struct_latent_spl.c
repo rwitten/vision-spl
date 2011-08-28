@@ -179,8 +179,8 @@ double current_obj_val(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CACH
   lhs = NULL;
   margin = 0;
   for (i=0;i<m;i++) {
-		if(!valid_examples[i])
-			continue;
+    if(!valid_examples[i])
+        continue;
     find_most_violated_constraint(&(ex[i]), &ybar, &hbar, cached_images, valid_example_kernels[i], sm, sparm);
     /* get difference vector */
     fy = psi(ex[i].x,ex[i].y,ex[i].h,cached_images, valid_example_kernels[i],sm,sparm);
@@ -422,7 +422,7 @@ SVECTOR* find_cutting_plane(EXAMPLE *ex, SVECTOR **fycache, double *margin, long
   }
   words[k].wnum = 0;
   words[k].weight = 0.0;
-  fvec = create_svector(words,"",1);
+  fvec = create_svector(words,(char*)"",1);
 
   free(words);
   free(new_constraint);
@@ -572,7 +572,6 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 	SVECTOR *new_constraint;
   int iter, size_active; 
   double value;
-	double threshold = 0.0;
   double margin;
   double primal_obj, cur_obj;
 	double *cur_slack = NULL;
@@ -637,7 +636,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 	printf("First violation is %f\n", value);
 
 	double UPPER_BOUND = DBL_MAX;
-	double LOWER_BOUND = -DBL_MAX;
+	double LOWER_BOUND = 0;
 	double* w_temp = (double*) malloc(sizeof(double) *(sm->sizePsi+2));
 	while(((UPPER_BOUND-LOWER_BOUND>C*epsilon)&&(iter<MAX_ITER))||(iter<5)) {
 		iter+=1;
@@ -653,26 +652,26 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 		start_time.tv_usec = finish_time.tv_usec;
 
     /* add  constraint */
-  	dXc = (DOC**)realloc(dXc, sizeof(DOC*)*size_active);
-   	assert(dXc!=NULL);
-   	dXc[size_active-1] = (DOC*)malloc(sizeof(DOC));
-   	dXc[size_active-1]->fvec = new_constraint; 
-   	dXc[size_active-1]->slackid = 1; // only one common slackid (one-slack)
-   	dXc[size_active-1]->costfactor = 1.0;
+        dXc = (DOC**)realloc(dXc, sizeof(DOC*)*size_active);
+        assert(dXc!=NULL);
+        dXc[size_active-1] = (DOC*)malloc(sizeof(DOC));
+        dXc[size_active-1]->fvec = new_constraint; 
+        dXc[size_active-1]->slackid = 1; // only one common slackid (one-slack)
+        dXc[size_active-1]->costfactor = 1.0;
 
-   	delta = (double*)realloc(delta, sizeof(double)*size_active);
-   	assert(delta!=NULL);
-   	delta[size_active-1] = margin;
-		delta_plus_A_wlast = (double*)realloc(delta_plus_A_wlast, sizeof(double)*size_active);
-		assert(delta_plus_A_wlast != NULL);
-		delta_plus_A_wlast[size_active - 1] = delta[size_active - 1] - ((2.0 * sparm->prox_weight) / (1.0 + 2.0 * sparm->prox_weight)) * sprod_ns(w_last, new_constraint);
-		
-   	alpha = (double*)realloc(alpha, sizeof(double)*size_active);
-   	assert(alpha!=NULL);
-   	alpha[size_active-1] = 0.0;
-		alpha_lb = (double*)realloc(alpha_lb, sizeof(double)*size_active);
-   	assert(alpha_lb!=NULL);
-   	alpha_lb[size_active-1] = 0.0;
+        delta = (double*)realloc(delta, sizeof(double)*size_active);
+        assert(delta!=NULL);
+        delta[size_active-1] = margin;
+        delta_plus_A_wlast = (double*)realloc(delta_plus_A_wlast, sizeof(double)*size_active);
+        assert(delta_plus_A_wlast != NULL);
+        delta_plus_A_wlast[size_active - 1] = delta[size_active - 1] - ((2.0 * sparm->prox_weight) / (1.0 + 2.0 * sparm->prox_weight)) * sprod_ns(w_last, new_constraint);
+            
+        alpha = (double*)realloc(alpha, sizeof(double)*size_active);
+        assert(alpha!=NULL);
+        alpha[size_active-1] = 0.0;
+        alpha_lb = (double*)realloc(alpha_lb, sizeof(double)*size_active);
+        assert(alpha_lb!=NULL);
+        alpha_lb[size_active-1] = 0.0;
 
 		idle = (int *) realloc(idle, sizeof(int)*size_active);
 		assert(idle!=NULL);
@@ -698,82 +697,31 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 		struct timeval qp_start_time;
 		struct timeval qp_finish_time;
 		gettimeofday(&qp_start_time, NULL);
-		r = mosek_qp_optimize(G, delta_plus_A_wlast, alpha, (long) size_active, C / (1.0 + 2.0 * sparm->prox_weight), &cur_obj);
+        r = mosek_qp_optimize(G, delta_plus_A_wlast, alpha, (long) size_active, C / (1.0 + 2.0 * sparm->prox_weight), &cur_obj); // regularized solve
 		gettimeofday(&qp_finish_time, NULL);
 		microseconds = 1e6 * (qp_finish_time.tv_sec - qp_start_time.tv_sec) + (qp_finish_time.tv_usec - qp_start_time.tv_usec);
 		printf("Solving QP took %f\n", (double)microseconds/1000.0);
-    /*
-    double eps = 1e-12;
-    while(r >= 1293 && r <= 1296 && eps<100)
-    {
-        printf("|"); fflush(stdout);
-        //approximate_to_psd(G,size_active,eps);
-        for(j = 0; j < size_active; j++)
-            if(eps > 1e-12)
-                G[j][j] += eps - eps/100.0;
-            else
-                G[j][j] += eps;
-        r = mosek_qp_optimize(G, delta, alpha, (long) size_active, C, &cur_obj);
-        eps *= 100.0;
-    }
-    // undo changes to G
-    if(eps > 1e-12)
-        for(j = 0; j < size_active; j++)
-    G[j][j] -= eps/100.0;
-    */
-		if(r >= 1293 && r <= 1296)
-		{
-			printf("r:%d. G might not be psd due to numerical errors.\n",r);
-			exit(1);
-		}
-		else if(r)
-		{
-			printf("Error %d in mosek_qp_optimize: Check ${MOSEKHOME}/${VERSION}/tools/platform/${PLATFORM}/h/mosek.h\n",r);
-			exit(1);
-		}
+    
+        if(r >= 1293 && r <= 1296)
+        {
+            printf("r:%d. G might not be psd due to numerical errors.\n",r);
+            exit(1);
+        }
+        else if(r)
+        {
+            printf("Error %d in mosek_qp_optimize: Check ${MOSEKHOME}/${VERSION}/tools/platform/${PLATFORM}/h/mosek.h\n",r);
+            exit(1);
+        }
 
-		if(iter%ITERS_TO_UPDATE_LOWER_BOUND == 1)
-		{
-			double temp_lower_bound;
-			r = mosek_qp_optimize(G, delta, alpha_lb, (long) size_active, C, &temp_lower_bound);
-			if(r >= 1293 && r <= 1296)
-			{
-				printf("r:%d. G might not be psd due to numerical errors.\n",r);
-				exit(1);
-			}
-			else if(r)
-			{
-				printf("Error %d in mosek_qp_optimize: Check ${MOSEKHOME}/${VERSION}/tools/platform/${PLATFORM}/h/mosek.h\n",r);
-				exit(1);
-			}
-			new_constraint = find_cutting_plane(ex, fycache, &margin, m, cached_images, sm, sparm, valid_examples, valid_example_kernels);
-
-			clear_nvector(w_temp,sm->sizePsi+1);
-			for (j=0;j<size_active;j++) {
-				if (alpha[j] > C * ALPHA_THRESHOLD ) { 
-					add_vector_ns(w_temp,dXc[j]->fvec,alpha_lb[j]);
-				}
-			}
-
-			value = m*C*(margin - sprod_ns(w_temp, new_constraint));
-			printf("LB BEFORE REG %f\n", value);
-			for(i = 0 ; i < sm->sizePsi+2 ; i ++)
-				value += .5 * w_temp[i]*w_temp[i];
-			if(value> LOWER_BOUND)
-				LOWER_BOUND = value;
-			printf("LOWER_BOUND %f\n", LOWER_BOUND);
-			free_svector(new_constraint);
-		}
-	
-		clear_nvector(w,sm->sizePsi+1);
-   	for (j=0;j<size_active;j++) {
-     	if (alpha[j] > C * ALPHA_THRESHOLD / (1.0 + 2.0 * sparm->prox_weight)) {
-				add_vector_ns(w,dXc[j]->fvec,alpha[j]);
-				idle[j] = 0;
-     	}
-			else
-				idle[j]++;
-   	}
+        clear_nvector(w,sm->sizePsi+1);
+        for (j=0;j<size_active;j++) {
+            if (alpha[j] > C * ALPHA_THRESHOLD / (1.0 + 2.0 * sparm->prox_weight)) {
+                    add_vector_ns(w,dXc[j]->fvec,alpha[j]);
+                    idle[j] = 0;
+            }
+                else
+                    idle[j]++;
+        }
 
 		for (j = 0; j < sm->sizePsi +2; ++j) {
 			w[j] += ((2.0 * sparm->prox_weight) / (1.0 + 2.0 * sparm->prox_weight)) * w_last[j];
@@ -805,19 +753,82 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 			}
 		}
 
-		if(size_active > 1)
-			threshold = C*m*cur_slack[mv_iter];
-		else
-			threshold = 0.0;
 
  		new_constraint = find_cutting_plane(ex, fycache, &margin, m, cached_images, sm, sparm, valid_examples, valid_example_kernels);
 
-		for(int i = 0 ; i < sm->sizePsi+2 ; i ++)
-			threshold += .5* w[i]*w[i];
+		double threshold = C*(margin - sprod_ns(w, new_constraint));
 
-	
-		if(threshold<UPPER_BOUND)
+        if(threshold<0)
+            threshold=0;
+
+        printf("UB before adding w cost %f\n", threshold);
+		for( i = 0 ; i < sm->sizePsi+2 ; i ++)
+			threshold += .5* w[i]*w[i];
+        printf("UB after adding w cost %f\n", threshold);
+
+		if(threshold<UPPER_BOUND) //THIS IS THE BOUND WE GET BY EVALUATING CURRENT SOLUTION ON THE FULL QP
 			UPPER_BOUND=threshold;
+
+        if( (iter % ITERS_TO_UPDATE_LOWER_BOUND) == 2)
+        {
+            double lb1;
+            r = mosek_qp_optimize(G, delta, alpha_lb, (long) size_active, C, &lb1); // unregularized solve
+            if(r >= 1293 && r <= 1296)
+            {
+                printf("r:%d. G might not be psd due to numerical errors.\n",r);
+                exit(1);
+            }
+            else if(r)
+            {
+                printf("Error %d in mosek_qp_optimize: Check ${MOSEKHOME}/${VERSION}/tools/platform/${PLATFORM}/h/mosek.h\n",r);
+                exit(1);
+            }
+            clear_nvector(w_temp,sm->sizePsi+1);
+            for (j=0;j<size_active;j++) {
+                if (alpha_lb[j] > C * ALPHA_THRESHOLD) {
+                        add_vector_ns(w_temp,dXc[j]->fvec,alpha_lb[j]);
+                }
+            }
+            double max_slack = -DBL_MAX;
+            assert(size_active>1);
+            for(i = 0; i < size_active; i++) {
+                double slack = 0;
+                for(f = dXc[i]->fvec; f; f = f->next) {
+                    j = 0;
+                    while(f->words[j].wnum) {
+                        slack += w_temp[f->words[j].wnum]*f->words[j].weight;
+                        j++;
+                    }
+                }
+                if(slack >= delta[i])
+                    slack = 0;
+                else
+                    slack = delta[i]-slack;
+                if(slack>max_slack)
+                    max_slack = slack;
+            }
+            printf("(LB) Max slack is %f\n", max_slack);
+
+            //printf("Max slack %f\n", max_slack);
+            double lb = C*max_slack;
+            for(i = 0 ; i < sm->sizePsi+2 ; i ++)
+                lb += .5* w_temp[i]*w_temp[i];
+            printf("(LB) After adding adding w cost %f \n", lb);
+            double temp_margin;
+            sm->w = w_temp;
+            new_constraint = find_cutting_plane(ex, fycache, &temp_margin, m, cached_images, sm, sparm, valid_examples, valid_example_kernels);
+            
+            double new_threshold = C*(temp_margin - sprod_ns(w_temp, new_constraint));
+            printf("And FMVC finds one that is %f\n", new_threshold);
+
+            sm->w = w;
+            //printf("New lower bound is %f\n", lb);
+            if(lb > LOWER_BOUND) // THIS EXACT SOLUTION OF PARTIAL QP PROVIDES A LOWER BOUND 
+                                //(SINCE IT HAS FEWER CONSTRAINTS THAN THE TRUE PROBLEM
+            {
+                LOWER_BOUND=lb;
+            }
+        }
 
 		if((iter % CLEANUP_CHECK) == 0)
 		{
@@ -825,7 +836,8 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 			size_active = resize_cleanup(size_active, &idle, &alpha, &alpha_lb,&delta, &delta_plus_A_wlast, &dXc, &G, &mv_iter);
 		}
 		printf("We need to get %f less than %f on iter %d\n", UPPER_BOUND, LOWER_BOUND+C*epsilon, iter);
-	  memcpy(w_last, w, (sm->sizePsi + 2) * sizeof(double));
+	    memcpy(w_last, w, (sm->sizePsi + 2) * sizeof(double));
+        assert(UPPER_BOUND + epsilon>LOWER_BOUND);
  	} // end cutting plane while loop 
 
 	primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, valid_examples, valid_example_kernels);
@@ -1130,7 +1142,7 @@ int main(int argc, char* argv[]) {
   C = learn_parm.svm_c;
   MAX_ITER = learn_parm.maxiter;
 
-  init_struct_model(get_sample_size(trainfile), KERNEL_INFO_FILE, &sm);
+  init_struct_model(get_sample_size(trainfile), (char*)KERNEL_INFO_FILE, &sm);
 
 
   /* read in examples */
