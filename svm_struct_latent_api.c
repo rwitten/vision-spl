@@ -237,6 +237,12 @@ void init_latent_variables(SAMPLE *sample, LEARN_PARM *lparm, STRUCTMODEL *sm, S
 	for(i=0;i<sample->n;i++)
 	{
 		LATENT_VAR h = make_latent_var(sm);
+		LATENT_BOX random;
+		random.position_x_pixel = 1;//(long) floor(genrand_res53()*(sample->examples[i].x.width_pixel-10));
+		random.position_y_pixel = 1;//(long) floor(genrand_res53()*(sample->examples[i].x.height_pixel-10));
+		random.bbox_width_pixel = sample->examples[i].x.width_pixel;//(long) floor(genrand_res53()*(sample->examples[i].x.width_pixel-random.position_x_pixel-5));
+		random.bbox_height_pixel = sample->examples[i].x.height_pixel;//(long) floor(genrand_res53()*(sample->examples[i].x.height_pixel-random.position_y_pixel-5));
+		
 		for(int j = 0; j < sm->num_kernels; j++)
 		{
 			if (sample->examples[i].y.label == 0) {
@@ -247,10 +253,7 @@ void init_latent_variables(SAMPLE *sample, LEARN_PARM *lparm, STRUCTMODEL *sm, S
 			}
 			else {
 				assert(sample->examples[i].y.label==1);
-				h.boxes[j].position_x_pixel = 1;//(long) floor(genrand_res53()*(sample->examples[i].x.width_pixel-1));
-				h.boxes[j].position_y_pixel = 1;//(long) floor(genrand_res53()*(sample->examples[i].x.height_pixel-1));
-				h.boxes[j].bbox_width_pixel = sample->examples[i].x.width_pixel;//(long) floor(genrand_res53()*(sample->examples[i].x.width_pixel-h.boxes[j].position_x_pixel));
-				h.boxes[j].bbox_height_pixel = sample->examples[i].x.height_pixel;//(long) floor(genrand_res53()*(sample->examples[i].x.height_pixel-h.boxes[j].position_y_pixel));
+				h.boxes[j] = random;
 			}
 		}
 		sample->examples[i].h = h;
@@ -642,7 +645,6 @@ SVECTOR* psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cached_imag
 		LATENT_VAR subset_box = choose_subset(h,0,sparm,sm);
 		fvec = single_psi(x,y,subset_box,cached_images,valid_kernels,sm,sparm,1);
 		free_latent_var(subset_box);
-		/*
 		for(int subset = 1; subset<NUM_WINDOWS; subset++)
 		{
 		  subset_box = choose_subset(h,subset,sparm,sm);
@@ -652,7 +654,7 @@ SVECTOR* psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cached_imag
 			free_svector(addl_part);
 			free_svector(fvec);
 			fvec =newfvec;
-		}*/
+		}
     return fvec;
   } else {
     WORD * words = (WORD *)calloc(1, sizeof(WORD));
@@ -736,12 +738,6 @@ void compute_highest_scoring_latents_hallucinate(PATTERN x,LABEL y,IMAGE_KERNEL_
 			double* argypos = (double*)malloc(sizeof(double)*total_indices);
 			double* argclst = (double*)malloc(sizeof(double)*total_indices);
 			double* w = &sm->w[2];
-//			for(int i = 0 ; i < sm->sizeSinglePsi; i ++)
-//				w[i] = 0.001;
-			sm->w[1] = 0;
-		
-	//		printf("Total indice %d\n", total_indices);
-			
 
 			int factor = 20;
 			int curr_point = 0;
@@ -903,7 +899,7 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		gettimeofday(&end_time, NULL);
 //		double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
 //		printf("ESS took %f \n", microseconds/1000);
-		//printf("ESS got score %f and we got score %f\n", ourbox.score, ourscore-sm->w[1]);
+//		printf("ESS got score %f and we got score %f\n", ourbox.score, ourscore-sm->w[1]);
 		//assert((ourscore - sm->w[1] - ourbox.score < 1e-1)&&((-ourscore +sm->w[1])+ ourbox.score < 1e-1));
 		/*if(!( (ourscore - sm->w[1] - ourbox.score < 1e-5)&&(ourscore -sm->w[1]- ourbox.score > -1e-5)))
 		{
@@ -1042,6 +1038,11 @@ LATENT_VAR infer_latent_variables(PATTERN x, LABEL y, IMAGE_KERNEL_CACHE ** cach
 }
 
 
+void print_lv(LATENT_VAR h)
+{
+	printf("%f %f %f %f\n", h.boxes[0].position_y_pixel,  h.boxes[0].position_x_pixel,  h.boxes[0].bbox_height_pixel,  h.boxes[0].bbox_width_pixel);
+}
+
 double loss(LABEL y, LABEL ybar, LATENT_VAR hbar, STRUCT_LEARN_PARM *sparm) {
 /*
   Computes the loss of prediction (ybar,hbar) against the
@@ -1163,7 +1164,7 @@ void parse_struct_parameters(STRUCT_LEARN_PARM *sparm) {
   sparm->n_classes = 2;
   sparm->pos_neg_cost_ratio = 1.0;
   sparm->C = 10000;
- 	sparm->prox_weight = 1; 
+ 	sparm->prox_weight  = 0 ;
   for (i=0;(i<sparm->custom_argc)&&((sparm->custom_argv[i])[0]=='-');i++) {
     switch ((sparm->custom_argv[i])[2]) {
       /* your code here */

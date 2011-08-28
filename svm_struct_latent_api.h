@@ -5,6 +5,7 @@
 #include "svm_struct_latent_api_types.h"
 #include <float.h>
 
+void print_lv(LATENT_VAR h);
 void cut_off_last_column(IMAGE_KERNEL_CACHE * ikc);
 int pad_cmp(const void * a, const void * b);
 int get_sample_size(char * file);

@@ -32,8 +32,8 @@
 
 
 #define ALPHA_THRESHOLD 1E-14
-#define IDLE_ITER 10000
-#define CLEANUP_CHECK 10000
+#define IDLE_ITER 15
+#define CLEANUP_CHECK 20
 #define STOP_PREC 1E-2
 #define UPDATE_BOUND 3
 #define MAX_CURRICULUM_ITER 10
@@ -147,7 +147,7 @@ double print_all_scores(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CAC
   }
 
   /* compact the linear representation */
-  new_constraint = add_list_nn(lhs, sm->sizePsi);
+  new_constraint = add_list_nn(lhs, sm->sizePsi+1);
   free_svector(lhs);
 
 	obj = margin;
@@ -204,16 +204,16 @@ double current_obj_val(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CACH
   }
 
   /* compact the linear representation */
-  new_constraint = add_list_nn(lhs, sm->sizePsi);
+  new_constraint = add_list_nn(lhs, sm->sizePsi+1);
   free_svector(lhs);
 	free_latent_var(hbar);
 	obj = margin;
-	for(i = 1; i < sm->sizePsi+1; i++)
+	for(i = 1; i < sm->sizePsi+2; i++)
 		obj -= new_constraint[i]*sm->w[i];
 	if(obj < 0.0)
 		obj = 0.0;
 	obj *= C;
-	for(i = 1; i < sm->sizePsi+1; i++)
+	for(i = 1; i < sm->sizePsi+2; i++)
 		obj += 0.5*sm->w[i]*sm->w[i];
   free(new_constraint);
 
@@ -402,17 +402,17 @@ SVECTOR* find_cutting_plane(EXAMPLE *ex, SVECTOR **fycache, double *margin, long
 		free_latent_var(hbar_list[i]);
   free(hbar_list);
   /* compact the linear representation */
-  new_constraint = add_list_nn(lhs, sm->sizePsi);
+  new_constraint = add_list_nn(lhs, sm->sizePsi+1);
   free_svector(lhs);
 
   l=0;
-  for (i=1;i<sm->sizePsi+1;i++) {
+  for (i=1;i<sm->sizePsi+2;i++) {
     if (fabs(new_constraint[i])>1E-10) l++; // non-zero
   }
   words = (WORD*)my_malloc(sizeof(WORD)*(l+1)); 
   assert(words!=NULL);
   k=0;
-  for (i=1;i<sm->sizePsi+1;i++) {
+  for (i=1;i<sm->sizePsi+2;i++) {
     if (fabs(new_constraint[i])>1E-10) {
       words[k].wnum = i;
       words[k].weight = new_constraint[i]; 
@@ -435,13 +435,13 @@ void project_weights(double *w, int sizePsi, double lambda)
 	double norm = 0.0;
 	double projection_factor = 1.0;
 	int i;
-	for(i=0;i<=sizePsi;i++)
+	for(i=0;i<=sizePsi+2;i++)
 		norm += w[i]*w[i];
 	norm = sqrt(norm);
 	if(norm > 1/sqrt(lambda))
 	{
 		projection_factor = 1.0/(sqrt(lambda)*norm);
-		for(i=0;i<=sizePsi;i++)
+		for(i=0;i<=sizePsi+2;i++)
 			w[i] *= projection_factor;
 	}
 }
@@ -562,7 +562,6 @@ long *randperm(long m, long n)
 //}
 
 double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double epsilon, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples, int** valid_example_kernels) {
-	epsilon=1e-4;
   long i,j;
   double *alpha;
   DOC **dXc; /* constraint matrix */
@@ -581,8 +580,8 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 	SVECTOR *f;
 	int r;
 
- 	double* w_last = (double*)calloc(sm->sizePsi + 1, sizeof(double));
-  memcpy(w_last, w, (sm->sizePsi + 1) * sizeof(double));
+ 	double* w_last = (double*)calloc(sm->sizePsi + 2, sizeof(double));
+  memcpy(w_last, w, (sm->sizePsi + 2) * sizeof(double));
 
   /* set parameters for hideo solver */
   LEARN_PARM lparm;
@@ -632,6 +631,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 
   new_constraint = find_cutting_plane(ex, fycache, &margin, m, cached_images, sm, sparm, valid_examples, valid_example_kernels);
  	value = margin - sprod_ns(w, new_constraint);
+	printf("First violation is %f\n", value);
 	while((value>threshold+epsilon)&&(iter<MAX_ITER)) {
 		printf("We need to get %f less than %f on iter %d\n", value, threshold+epsilon, iter);
 		iter+=1;
@@ -682,7 +682,6 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 			G[j][size_active-1]  = G[size_active-1][j];
 		}
 		G[size_active-1][size_active-1] = sprod_ss(dXc[size_active-1]->fvec,dXc[size_active-1]->fvec);
-
 		/* hack: add a constant to the diagonal to make sure G is PSD */
 		G[size_active-1][size_active-1] += 1e-6;
 
@@ -723,8 +722,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 			printf("Error %d in mosek_qp_optimize: Check ${MOSEKHOME}/${VERSION}/tools/platform/${PLATFORM}/h/mosek.h\n",r);
 			exit(1);
 		}
-
-   	clear_nvector(w,sm->sizePsi);
+   	clear_nvector(w,sm->sizePsi+1);
    	for (j=0;j<size_active;j++) {
      	if (alpha[j] > C * ALPHA_THRESHOLD / (1.0 + 2.0 * sparm->prox_weight)) {
 				add_vector_ns(w,dXc[j]->fvec,alpha[j]);
@@ -734,7 +732,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 				idle[j]++;
    	}
 
-		for (j = 0; j < sm->sizePsi +1; ++j) {
+		for (j = 0; j < sm->sizePsi +2; ++j) {
 			w[j] += ((2.0 * sparm->prox_weight) / (1.0 + 2.0 * sparm->prox_weight)) * w_last[j];
 		}
 							
@@ -777,8 +775,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 			printf("+"); fflush(stdout);
 			size_active = resize_cleanup(size_active, &idle, &alpha, &delta, &delta_plus_A_wlast, &dXc, &G, &mv_iter);
 		}
-
-	  memcpy(w_last, w, (sm->sizePsi + 1) * sizeof(double));
+	  memcpy(w_last, w, (sm->sizePsi + 2) * sizeof(double));
  	} // end cutting plane while loop 
 
 	primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, valid_examples, valid_example_kernels);
@@ -967,8 +964,8 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
 			kernel_info[i]=0;
     }
 
-    for (i=0;i<sm->sizePsi+1;i++)
-    	w[i] = 0.0;
+//    for (i=0;i<sm->sizePsi+2;i++)
+//    	w[i] = 0.0;
 
 //	for(i=0; i< m; i++)
 //	{
@@ -1105,8 +1102,8 @@ int main(int argc, char* argv[]) {
   IMAGE_KERNEL_CACHE ** cached_images = init_cached_images(ex,&sm);
   m = sample.n;
 
-  w = create_nvector(sm.sizePsi);
-  clear_nvector(w, sm.sizePsi);
+  w = create_nvector(sm.sizePsi+1);
+  clear_nvector(w, sm.sizePsi+1);
   sm.w = w; /* establish link to w, as long as w does not change pointer */
 
   /* some training information */
@@ -1175,8 +1172,8 @@ int main(int argc, char* argv[]) {
 			  //primal_obj = stochastic_subgradient_descent(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples);
 		  }
   		for (i=0;i<m;i++) {
-   	 		free_latent_var(ex[i].h);
-   	 		ex[i].h = infer_latent_variables(ex[i].x, ex[i].y, cached_images, &sm, &sparm);
+//   	 		free_latent_var(ex[i].h);
+   	 		LATENT_VAR h_temp = infer_latent_variables(ex[i].x, ex[i].y, cached_images, &sm, &sparm);
    		}
 	    for (i=0;i<m;i++) {
   	    free_svector(fycache[i]);
@@ -1211,8 +1208,8 @@ int main(int argc, char* argv[]) {
     //printing some stuff before doing outer loop
     primal_obj = current_obj_val(ex, fycache, m, cached_images, &sm, &sparm, C, allon_examples, allon_example_kernels);
     printf("primal objective (AFTER INITIALIZATION): %f\n", primal_obj);
-    double* temp_w = create_nvector(sm.sizePsi);
-    clear_nvector(temp_w, sm.sizePsi);
+    double* temp_w = create_nvector(sm.sizePsi+1);
+    clear_nvector(temp_w, sm.sizePsi+1);
     double* backup_w = sm.w;
     sm.w = temp_w;
     primal_obj = current_obj_val(ex, fycache, m, cached_images, &sm, &sparm, C, allon_examples, allon_example_kernels);
@@ -1287,8 +1284,13 @@ int main(int argc, char* argv[]) {
 		latent_update=0;
 		if(nValid) {
         	for (i=0;i<m;i++) {
+//								printf("What changes? \n");
 								LATENT_VAR h_temp = ex[i].h;
       	        ex[i].h = infer_latent_variables(ex[i].x, ex[i].y, cached_images, &sm, &sparm);
+//								printf("newlatent var\n");
+//								print_lv(ex[i].h);
+//								printf("old latent var\n");
+//								print_lv(h_temp);
            	    free_latent_var(h_temp);
     	    }
 		}
@@ -1375,7 +1377,7 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
   learn_parm->maxiter=20000;
   learn_parm->svm_maxqpsize=100;
   learn_parm->svm_c=100.0;
-  learn_parm->eps=0.01;
+  learn_parm->eps=0.001;
   learn_parm->biased_hyperplane=12345; /* store random seed */
   learn_parm->remove_inconsistent=10; 
   kernel_parm->kernel_type=0;
@@ -1415,7 +1417,6 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
     }
  
   }
-  
   assert(*init_spl_weight > 0.0 || !struct_parm->multi_kernel_spl);
 
   *init_spl_weight = (*init_spl_weight)/learn_parm->svm_c;
@@ -1482,6 +1483,7 @@ int resize_cleanup(int size_active, int **ptr_idle, double **ptr_alpha, double *
     /* copying */
     alpha[i] = alpha[j];
     delta[i] = delta[j];
+    delta_plus_A_wlast[i] = delta_plus_A_wlast[j];
 		free(G[i]);
 		G[i] = G[j];
 		G[j] = NULL;

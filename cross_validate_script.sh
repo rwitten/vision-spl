@@ -7,15 +7,15 @@ cd $base_dir
 
 for randomness in 1
 do
-	for classfold in 'small' 
+	for classfold in 'verysmall'
 	do
-		for foldnum in 1 2 
+		for foldnum in 1
 		do
-			for C in 10 100 1000 10000
+			for C in  1
 			do
 				for l in 0
 				do
-					for h in 0 1
+					for h in 0
 					do
 						for algorithm in  1 2 3 
 						do
