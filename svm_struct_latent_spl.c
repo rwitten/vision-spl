@@ -31,9 +31,10 @@
 #include "./svm_light/svm_learn.h"
 
 
+#define ITERS_TO_UPDATE_LOWER_BOUND 10
 #define ALPHA_THRESHOLD 1E-14
-#define IDLE_ITER 15
-#define CLEANUP_CHECK 20
+#define IDLE_ITER 150
+#define CLEANUP_CHECK 200
 #define STOP_PREC 1E-2
 #define UPDATE_BOUND 3
 #define MAX_CURRICULUM_ITER 10
@@ -53,7 +54,7 @@ void my_read_input_parameters(int argc, char* argv[], char *trainfile, char *mod
 
 void my_wait_any_key();
 
-int resize_cleanup(int size_active, int **ptr_idle, double **ptr_alpha, double **ptr_delta, double **ptr_delta_plus_A_wlast, DOC ***ptr_dXc,
+int resize_cleanup(int size_active, int **ptr_idle, double **ptr_alpha, double** ptr_alpha_lb, double **ptr_delta, double **ptr_delta_plus_A_wlast, DOC ***ptr_dXc,
 		double ***ptr_G, int *mv_iter);
 
 void approximate_to_psd(double **G, int size_active, double eps);
@@ -564,6 +565,7 @@ long *randperm(long m, long n)
 double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double epsilon, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples, int** valid_example_kernels) {
   long i,j;
   double *alpha;
+  double *alpha_lb;
   DOC **dXc; /* constraint matrix */
   double *delta; /* rhs of constraints */
   double * delta_plus_A_wlast;
@@ -619,6 +621,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
   iter = 0;
   size_active = 0;
   alpha = NULL;
+	alpha_lb = NULL;
   dXc = NULL;
   delta = NULL;
 	delta_plus_A_wlast = NULL;
@@ -632,8 +635,11 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
   new_constraint = find_cutting_plane(ex, fycache, &margin, m, cached_images, sm, sparm, valid_examples, valid_example_kernels);
  	value = margin - sprod_ns(w, new_constraint);
 	printf("First violation is %f\n", value);
-	while((value>threshold+epsilon)&&(iter<MAX_ITER)) {
-		printf("We need to get %f less than %f on iter %d\n", value, threshold+epsilon, iter);
+
+	double UPPER_BOUND = DBL_MAX;
+	double LOWER_BOUND = -DBL_MAX;
+	double* w_temp = (double*) malloc(sizeof(double) *(sm->sizePsi+2));
+	while(((UPPER_BOUND-LOWER_BOUND>C*epsilon)&&(iter<MAX_ITER))||(iter<5)) {
 		iter+=1;
 		size_active+=1;
 
@@ -664,6 +670,9 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
    	alpha = (double*)realloc(alpha, sizeof(double)*size_active);
    	assert(alpha!=NULL);
    	alpha[size_active-1] = 0.0;
+		alpha_lb = (double*)realloc(alpha_lb, sizeof(double)*size_active);
+   	assert(alpha_lb!=NULL);
+   	alpha_lb[size_active-1] = 0.0;
 
 		idle = (int *) realloc(idle, sizeof(int)*size_active);
 		assert(idle!=NULL);
@@ -712,17 +721,51 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
         for(j = 0; j < size_active; j++)
     G[j][j] -= eps/100.0;
     */
-    if(r >= 1293 && r <= 1296)
-    {
-        printf("r:%d. G might not be psd due to numerical errors.\n",r);
-        exit(1);
-    }
-    else if(r)
-    {
-        printf("Error %d in mosek_qp_optimize: Check ${MOSEKHOME}/${VERSION}/tools/platform/${PLATFORM}/h/mosek.h\n",r);
-        exit(1);
-    }
-   	clear_nvector(w,sm->sizePsi+1);
+		if(r >= 1293 && r <= 1296)
+		{
+			printf("r:%d. G might not be psd due to numerical errors.\n",r);
+			exit(1);
+		}
+		else if(r)
+		{
+			printf("Error %d in mosek_qp_optimize: Check ${MOSEKHOME}/${VERSION}/tools/platform/${PLATFORM}/h/mosek.h\n",r);
+			exit(1);
+		}
+
+		if(iter%ITERS_TO_UPDATE_LOWER_BOUND == 1)
+		{
+			double temp_lower_bound;
+			r = mosek_qp_optimize(G, delta, alpha_lb, (long) size_active, C, &temp_lower_bound);
+			if(r >= 1293 && r <= 1296)
+			{
+				printf("r:%d. G might not be psd due to numerical errors.\n",r);
+				exit(1);
+			}
+			else if(r)
+			{
+				printf("Error %d in mosek_qp_optimize: Check ${MOSEKHOME}/${VERSION}/tools/platform/${PLATFORM}/h/mosek.h\n",r);
+				exit(1);
+			}
+			new_constraint = find_cutting_plane(ex, fycache, &margin, m, cached_images, sm, sparm, valid_examples, valid_example_kernels);
+
+			clear_nvector(w_temp,sm->sizePsi+1);
+			for (j=0;j<size_active;j++) {
+				if (alpha[j] > C * ALPHA_THRESHOLD ) { 
+					add_vector_ns(w_temp,dXc[j]->fvec,alpha_lb[j]);
+				}
+			}
+
+			value = m*C*(margin - sprod_ns(w_temp, new_constraint));
+			printf("LB BEFORE REG %f\n", value);
+			for(i = 0 ; i < sm->sizePsi+2 ; i ++)
+				value += .5 * w_temp[i]*w_temp[i];
+			if(value> LOWER_BOUND)
+				LOWER_BOUND = value;
+			printf("LOWER_BOUND %f\n", LOWER_BOUND);
+			free_svector(new_constraint);
+		}
+	
+		clear_nvector(w,sm->sizePsi+1);
    	for (j=0;j<size_active;j++) {
      	if (alpha[j] > C * ALPHA_THRESHOLD / (1.0 + 2.0 * sparm->prox_weight)) {
 				add_vector_ns(w,dXc[j]->fvec,alpha[j]);
@@ -763,18 +806,25 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 		}
 
 		if(size_active > 1)
-			threshold = cur_slack[mv_iter];
+			threshold = C*m*cur_slack[mv_iter];
 		else
 			threshold = 0.0;
 
  		new_constraint = find_cutting_plane(ex, fycache, &margin, m, cached_images, sm, sparm, valid_examples, valid_example_kernels);
-   	value = margin - sprod_ns(w, new_constraint);
+
+		for(int i = 0 ; i < sm->sizePsi+2 ; i ++)
+			threshold += .5* w[i]*w[i];
+
+	
+		if(threshold<UPPER_BOUND)
+			UPPER_BOUND=threshold;
 
 		if((iter % CLEANUP_CHECK) == 0)
 		{
 			printf("+"); fflush(stdout);
-			size_active = resize_cleanup(size_active, &idle, &alpha, &delta, &delta_plus_A_wlast, &dXc, &G, &mv_iter);
+			size_active = resize_cleanup(size_active, &idle, &alpha, &alpha_lb,&delta, &delta_plus_A_wlast, &dXc, &G, &mv_iter);
 		}
+		printf("We need to get %f less than %f on iter %d\n", UPPER_BOUND, LOWER_BOUND+C*epsilon, iter);
 	  memcpy(w_last, w, (sm->sizePsi + 2) * sizeof(double));
  	} // end cutting plane while loop 
 
@@ -787,6 +837,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 		free(G[j]);
     free_example(dXc[j],1);	
   }
+	free(w_temp);
 	free(G);
   free(dXc);
   free(alpha);
@@ -1461,13 +1512,14 @@ void my_wait_any_key()
   (void)getc(stdin);
 }
 
-int resize_cleanup(int size_active, int **ptr_idle, double **ptr_alpha, double **ptr_delta, double ** ptr_delta_plus_A_wlast, DOC ***ptr_dXc, 
+int resize_cleanup(int size_active, int **ptr_idle, double **ptr_alpha, double** ptr_alpha_lb, double **ptr_delta, double ** ptr_delta_plus_A_wlast, DOC ***ptr_dXc, 
 		double ***ptr_G, int *mv_iter) {
   int i,j, new_size_active;
   long k;
 
   int *idle=*ptr_idle;
   double *alpha=*ptr_alpha;
+  double *alpha_lb=*ptr_alpha_lb;
   double *delta=*ptr_delta;
 	double *delta_plus_A_wlast = *ptr_delta_plus_A_wlast;
 	DOC	**dXc = *ptr_dXc;
@@ -1482,6 +1534,7 @@ int resize_cleanup(int size_active, int **ptr_idle, double **ptr_alpha, double *
   while (j<size_active) {
     /* copying */
     alpha[i] = alpha[j];
+    alpha_lb[i] = alpha_lb[j];
     delta[i] = delta[j];
     delta_plus_A_wlast[i] = delta_plus_A_wlast[j];
 		free(G[i]);
@@ -1506,6 +1559,7 @@ int resize_cleanup(int size_active, int **ptr_idle, double **ptr_alpha, double *
 	*mv_iter = new_mv_iter;
   new_size_active = i;
   alpha = (double*)realloc(alpha, sizeof(double)*new_size_active);
+  alpha_lb = (double*)realloc(alpha_lb, sizeof(double)*new_size_active);
   delta = (double*)realloc(delta, sizeof(double)*new_size_active);
 	delta_plus_A_wlast = (double*)realloc(delta_plus_A_wlast, sizeof(double) * new_size_active);
 	G = (double **) realloc(G, sizeof(double *)*new_size_active);
@@ -1534,6 +1588,7 @@ int resize_cleanup(int size_active, int **ptr_idle, double **ptr_alpha, double *
 
   *ptr_idle = idle;
   *ptr_alpha = alpha;
+  *ptr_alpha_lb = alpha_lb;
   *ptr_delta = delta;
 	*ptr_delta_plus_A_wlast = delta_plus_A_wlast;
 	*ptr_G = G;
