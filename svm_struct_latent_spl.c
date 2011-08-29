@@ -1435,7 +1435,7 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
   learn_parm->maxiter=20000;
   learn_parm->svm_maxqpsize=100;
   learn_parm->svm_c=100.0;
-  learn_parm->eps=0.001;
+  learn_parm->eps=0.01;
   learn_parm->biased_hyperplane=12345; /* store random seed */
   learn_parm->remove_inconsistent=10; 
   kernel_parm->kernel_type=0;
