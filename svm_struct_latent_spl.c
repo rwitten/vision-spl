@@ -33,8 +33,8 @@
 
 #define ITERS_TO_UPDATE_LOWER_BOUND 10
 #define ALPHA_THRESHOLD 1E-14
-#define IDLE_ITER 150
-#define CLEANUP_CHECK 200
+#define IDLE_ITER 25
+#define CLEANUP_CHECK 50
 #define STOP_PREC 1E-2
 #define UPDATE_BOUND 3
 #define MAX_CURRICULUM_ITER 10
@@ -581,7 +581,8 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 	SVECTOR *f;
 	int r;
 
- 	double* w_last = (double*)calloc(sm->sizePsi + 2, sizeof(double));
+  double* w_last = (double*)calloc(sm->sizePsi + 2, sizeof(double));
+  double* w_best = (double*)calloc(sm->sizePsi + 2, sizeof(double));
   memcpy(w_last, w, (sm->sizePsi + 2) * sizeof(double));
 
   /* set parameters for hideo solver */
@@ -638,7 +639,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 	double UPPER_BOUND = DBL_MAX;
 	double LOWER_BOUND = 0;
 	double* w_temp = (double*) malloc(sizeof(double) *(sm->sizePsi+2));
-	while(((UPPER_BOUND-LOWER_BOUND>C*epsilon)&&(iter<MAX_ITER))||(iter<5)) {
+	while(((UPPER_BOUND-LOWER_BOUND>C*epsilon)&&(iter<MAX_ITER))) {
 		iter+=1;
 		size_active+=1;
 
@@ -664,7 +665,9 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
         delta[size_active-1] = margin;
         delta_plus_A_wlast = (double*)realloc(delta_plus_A_wlast, sizeof(double)*size_active);
         assert(delta_plus_A_wlast != NULL);
-        delta_plus_A_wlast[size_active - 1] = delta[size_active - 1] - ((2.0 * sparm->prox_weight) / (1.0 + 2.0 * sparm->prox_weight)) * sprod_ns(w_last, new_constraint);
+
+        for(i = 0 ; i < size_active ; i ++)
+            delta_plus_A_wlast[i] = delta[i] - ((2.0 * sparm->prox_weight) / (1.0 + 2.0 * sparm->prox_weight)) * sprod_ns(w_last, dXc[i]->fvec);
             
         alpha = (double*)realloc(alpha, sizeof(double)*size_active);
         assert(alpha!=NULL);
@@ -757,17 +760,17 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
  		new_constraint = find_cutting_plane(ex, fycache, &margin, m, cached_images, sm, sparm, valid_examples, valid_example_kernels);
 
 		double threshold = C*(margin - sprod_ns(w, new_constraint));
-
         if(threshold<0)
             threshold=0;
 
-        printf("UB before adding w cost %f\n", threshold);
 		for( i = 0 ; i < sm->sizePsi+2 ; i ++)
 			threshold += .5* w[i]*w[i];
-        printf("UB after adding w cost %f\n", threshold);
 
 		if(threshold<UPPER_BOUND) //THIS IS THE BOUND WE GET BY EVALUATING CURRENT SOLUTION ON THE FULL QP
+        {
 			UPPER_BOUND=threshold;
+            memcpy(w_best, w, sizeof(double)*(sm->sizePsi+2));
+        }
 
         if( (iter % ITERS_TO_UPDATE_LOWER_BOUND) == 2)
         {
@@ -807,21 +810,10 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
                 if(slack>max_slack)
                     max_slack = slack;
             }
-            printf("(LB) Max slack is %f\n", max_slack);
 
-            //printf("Max slack %f\n", max_slack);
             double lb = C*max_slack;
             for(i = 0 ; i < sm->sizePsi+2 ; i ++)
                 lb += .5* w_temp[i]*w_temp[i];
-            printf("(LB) After adding adding w cost %f \n", lb);
-            double temp_margin;
-            sm->w = w_temp;
-            new_constraint = find_cutting_plane(ex, fycache, &temp_margin, m, cached_images, sm, sparm, valid_examples, valid_example_kernels);
-            
-            double new_threshold = C*(temp_margin - sprod_ns(w_temp, new_constraint));
-            printf("And FMVC finds one that is %f\n", new_threshold);
-
-            sm->w = w;
             //printf("New lower bound is %f\n", lb);
             if(lb > LOWER_BOUND) // THIS EXACT SOLUTION OF PARTIAL QP PROVIDES A LOWER BOUND 
                                 //(SINCE IT HAS FEWER CONSTRAINTS THAN THE TRUE PROBLEM
@@ -849,16 +841,19 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 		free(G[j]);
     free_example(dXc[j],1);	
   }
-	free(w_temp);
-	free(G);
+  memcpy(w,w_best, sizeof(double)*(sm->sizePsi+2));
+
+  free(w_best);
+  free(w_temp);
+  free(G);
   free(dXc);
   free(alpha);
   free(w_last);
   free(delta_plus_A_wlast);
   free(delta);
   free_svector(new_constraint);
-	free(cur_slack);
-	free(idle);
+  free(cur_slack);
+  free(idle);
   if (svm_model!=NULL) free_model(svm_model,0);
 
   return(primal_obj);

@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
           fpsineg = fopen(psinegfile, "w");
         }
 
-  init_struct_model(get_sample_size(testfile), KERNEL_INFO_FILE, &model);
+  init_struct_model(get_sample_size(testfile), (char*)KERNEL_INFO_FILE, &model);
 
   read_struct_model(modelfile, &model);
 
