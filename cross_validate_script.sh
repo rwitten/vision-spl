@@ -9,15 +9,15 @@ for randomness in 1
 do
 	for classfold in 'small'
 	do
-		for foldnum in 1 2
+		for foldnum in 1
 		do
 			for C in  1
 			do
-				for l in 0 1
+				for l in 0
 				do
-					for h in 0 1
+					for h in 0
 					do
-						for algorithm in  1 2 3 
+						for algorithm in  1
 						do
 							num_neg=`cat data/train.${classfold}_1.txt | grep ' 0 ' | wc -l`
 							num_pos=`cat data/train.${classfold}_1.txt | grep ' 1 ' | wc -l`

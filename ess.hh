@@ -114,7 +114,8 @@ extern "C" {
 Box pyramid_search(int argnumpoints, int argwidth, int argheight,
                    double* argxpos, double* argypos, double* argclst,
                    int argnumclusters, int argnumlevels, double* argweight,
-									 double maxiterations, int& solvedExactly, int factor);
+    				 double maxiterations, int& solvedExactly, int factor,
+                     int NUM_BOXES, Box* boxes);
 }
 
 #endif

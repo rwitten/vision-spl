@@ -20,7 +20,7 @@
 #include <unistd.h>
 #include <pthread.h>
 
-
+#include "./SFMT-src-1.3.3/SFMT.h"
 #include <stdio.h>
 #include <assert.h>
 #include <float.h>
@@ -32,7 +32,7 @@
 
 
 #define ITERS_TO_UPDATE_LOWER_BOUND 10
-#define ALPHA_THRESHOLD 1E-14
+#define ALPHA_THRESHOLD 1E-8
 #define IDLE_ITER 25
 #define CLEANUP_CHECK 50
 #define STOP_PREC 1E-2
@@ -40,6 +40,7 @@
 #define MAX_CURRICULUM_ITER 10
 #define NUM_THREADS 12
 #define MAX_OUTER_ITER 20
+#define SSG_PRINT_ITERS 100
 
 #define MAX(x,y) ((x) < (y) ? (y) : (x))
 #define MIN(x,y) ((x) > (y) ? (y) : (x))
@@ -364,8 +365,8 @@ SVECTOR* find_cutting_plane(EXAMPLE *ex, SVECTOR **fycache, double *margin, long
   gettimeofday(&start_time, NULL);
   find_most_violated_constraint_parallel(m,ex, ybar_list, hbar_list, cached_images,valid_examples, valid_example_kernels,  sm, sparm);
   gettimeofday(&finish_time, NULL);
-  double microseconds = 1e6 * (int)(finish_time.tv_sec - start_time.tv_sec) + (int)(finish_time.tv_usec - start_time.tv_usec);
-	printf("FMVC took %f milliseconds\n", microseconds/1000);
+//  double microseconds = 1e6 * (int)(finish_time.tv_sec - start_time.tv_sec) + (int)(finish_time.tv_usec - start_time.tv_usec);
+//	printf("FMVC took %f milliseconds\n", microseconds/1000);
 
   for (i=0;i<m;i++) {
 
@@ -377,6 +378,7 @@ SVECTOR* find_cutting_plane(EXAMPLE *ex, SVECTOR **fycache, double *margin, long
     fy = psi(ex[i].x,ex[i].y,ex[i].h,cached_images, valid_example_kernels[i],sm,sparm);
     fybar = psi(ex[i].x,ybar_list[i],hbar_list[i],cached_images, valid_example_kernels[i],sm,sparm);
     lossval = loss(ex[i].y,ybar_list[i],hbar_list[i],sparm);
+    //printf("for image %d loss is %f\n", i, lossval);
     free_label(ybar);
 		
     /* scale difference vector */
@@ -431,20 +433,24 @@ SVECTOR* find_cutting_plane(EXAMPLE *ex, SVECTOR **fycache, double *margin, long
 }
 
 /* project weights to ball of radius 1/sqrt{lambda} */
-void project_weights(double *w, int sizePsi, double lambda)
+void project_weights(double *w, int sizePsi, double C)
 {
-	double norm = 0.0;
+	double norm_squared = 0.0;
 	double projection_factor = 1.0;
 	int i;
-	for(i=0;i<=sizePsi+2;i++)
-		norm += w[i]*w[i];
-	norm = sqrt(norm);
-	if(norm > 1/sqrt(lambda))
+	for(i=0;i<sizePsi+2;i++)
+		norm_squared += w[i]*w[i];
+	if(.5 * norm_squared > C)
 	{
-		projection_factor = 1.0/(sqrt(lambda)*norm);
+		projection_factor = sqrt((2*C)/(norm_squared));
 		for(i=0;i<=sizePsi+2;i++)
-			w[i] *= projection_factor;
+			w[i] = w[i]*projection_factor;
 	}
+//    norm_squared = 0.0;
+//    for(i = 0 ; i  < sizePsi +2 ; i++)
+//       norm_squared += w[i]*w[i];
+
+//    printf("New obj is %f\n", .5*norm_squared);
 }
 
 long *randperm(long m, long n)
@@ -474,93 +480,82 @@ long *randperm(long m, long n)
   return perm;
 }
 
+void pick_ssg_set(int* valid_examples, int* temp_valid_examples, int m, double frac)
+{
+    for(int i = 0; i < m ; i++)
+    {
+        temp_valid_examples[i] = valid_examples[i] * (genrand_res53()<frac ? 1 : 0);
+    }
+}
+
 /* stochastic subgradient descent for solving the convex structural SVM problem */
-//double stochastic_subgradient_descent(double *w, long m, int MAX_ITER, double C, double epsilon, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples) {
-//
-//	/* constants */
-//	int subset_size = 10;
-//
-//	long *valid_indices;
-//	long num_valid = 0;
-//	long *perm;
-//
-//	int iter, i;
-//	double learn_rate, lambda = 1.0/C;
-//	int is_valid, example_index;
-//  SVECTOR *fy, *fybar;
-//  LABEL       ybar;
-//  LATENT_VAR hbar;
-//  double lossval, primal_obj;
-//	double *new_w = (double *) my_malloc((sm->sizePsi+2)*sizeof(double));
-//
-//  printf("Running stochastic structural SVM solver: "); fflush(stdout); 
-//
-//	valid_indices = (long *) my_malloc(m*sizeof(long));
-//	for(i=0;i<m;i++) {
-//		if(valid_examples[i]) {
-//			valid_indices[num_valid] = i;
-//			num_valid++;
-//		}
-//	}
-//	if(num_valid < subset_size)
-//		subset_size = num_valid;
-//
-//	/* initializations */
-//	iter = 0;
-//  srand(time(NULL));
+double stochastic_subgradient_descent(double *w, long m, int MAX_ITER, double C, double epsilon, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples, int** valid_example_kernels) {
+	/* constants */
+  printf("Running stochastic structural SVM solver: "); fflush(stdout); 
+
+
+  /* initializations */
+  int iter = 0;
+  srand(time(NULL));
+  double best_obj=C; //since zero gets C
+  double lambda = 1/(m*C);
+  double* grad = (double*) malloc(sizeof(double)*(2+sm->sizePsi));
+  printf("the relation is lambda %f m %ld and C %f\n", lambda, m, C);
+  int* temp_valid_examples = (int*) malloc(sizeof(int)*m);
 //	clear_nvector(w,sm->sizePsi);
-//
-//	while(iter<MAX_ITER) {
-//
-//		printf("."); fflush(stdout);
-//
-//		/* learning rate for iteration */
-//		iter+=1;
-//		learn_rate = 1.0/(lambda*iter);
-//
-//		for(i=0;i<=sm->sizePsi;i++)
-//			new_w[i] = (1.0-learn_rate*lambda)*w[i];
-//
-//		/* randomly select a subset of examples */
-//		perm = randperm(num_valid,subset_size);
-//
-//		for(i=0;i<subset_size;i++) {
-//			/* find subgradient */
-//		  find_most_violated_constraint(&(ex[valid_indices[perm[i]]]), &ybar, &hbar, cached_images, sm, sparm);
-//   		lossval = loss(ex[valid_indices[perm[i]]].y,ybar,hbar,sparm);
-//   		fy = copy_svector(fycache[valid_indices[perm[i]]]);
-//   		fybar = psi(ex[valid_indices[perm[i]]].x,ybar,hbar,cached_images,sm,sparm);
-//			/* update weight vector */
-//			/* ignoring example cost for simplicity */
-//			add_vector_ns(new_w,fy,ex[valid_indices[perm[i]]].x.example_cost*learn_rate/subset_size);
-//			add_vector_ns(new_w,fybar,-ex[valid_indices[perm[i]]].x.example_cost*learn_rate/subset_size);
-//
-//			/* free variables */
-//   		free_label(ybar);
-//   		free_latent_var(hbar);
-//			free_svector(fy);
-//			free_svector(fybar);
-//		}
-//
-//		free(perm);
-//
-//		for(i=0;i<=sm->sizePsi;i++)
-//			w[i] = new_w[i];
-//		/* optional step: project weights to ball of radius 1/sqrt{lambda} */
-//		project_weights(w,sm->sizePsi,lambda);
-//
-//	}
-//
-//	free(valid_indices);
-//	free(new_w);
-//
-//  printf(" Inner loop optimization finished.\n"); fflush(stdout); 
-//
-//	/* return primal objective value */
-//        primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, valid_examples);
-//	return(primal_obj);
-//
-//}
+	while(iter<MAX_ITER) {
+        double prox_reg = 1e2 * ( 1e4 + iter);
+        struct timeval start_time;
+        struct timeval finish_time;
+        gettimeofday(&start_time, NULL);
+        printf("."); fflush(stdout);
+        double margin;
+        pick_ssg_set(valid_examples,temp_valid_examples,m, 1);
+        SVECTOR* new_constraint;
+        if(iter % SSG_PRINT_ITERS != 0)
+            new_constraint = find_cutting_plane(ex, fycache, &margin, m, cached_images, sm, sparm, temp_valid_examples, valid_example_kernels);
+        else
+            new_constraint = find_cutting_plane(ex, fycache, &margin, m, cached_images, sm, sparm, valid_examples,valid_example_kernels);
+
+        for(int i = 0 ;  i < sm->sizePsi +2; i++)
+            grad[i] = prox_reg * w[i];
+
+        if(margin>0) 
+            add_vector_ns(grad, new_constraint, C);
+
+
+        if(iter % SSG_PRINT_ITERS == 0)
+        {
+            double objval = C*(margin - sprod_ns(w, new_constraint));
+            if(objval<0)
+                objval=0;
+            for( int i = 0 ; i < sm->sizePsi+2 ; i ++)
+                objval += .5* w[i]*w[i];
+
+            if(best_obj > objval)
+            {
+                best_obj = objval;
+            }
+            printf("new objective is %f with best %f on iter %d\n", objval, best_obj,iter );
+        }
+
+        for (int i = 0 ; i < sm->sizePsi + 2; i++)
+            w[i] = grad[i]/(1+prox_reg);
+
+        project_weights(w, sm->sizePsi, best_obj);
+        iter+=1;
+        free_svector(new_constraint);
+        gettimeofday(&finish_time, NULL);
+//        double microseconds = 1e6 * (int)(finish_time.tv_sec - start_time.tv_sec) + (int)(finish_time.tv_usec - start_time.tv_usec);
+//        printf("SSG step took %f milliseconds\n", microseconds/1000);
+ 	}
+    free(temp_valid_examples);
+
+  printf(" Inner loop optimization finished.\n"); fflush(stdout); 
+
+	/* return primal objective value */
+	return(best_obj);
+}
 
 double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double epsilon, SVECTOR **fycache, EXAMPLE *ex, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples, int** valid_example_kernels) {
   long i,j;
@@ -1039,8 +1034,7 @@ double alternate_convex_search(double *w, long m, int MAX_ITER, double C, double
     if(!sparm->optimizer_type) {
         cutting_plane_algorithm(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, sm, sparm, valid_examples, valid_example_kernels);
         } else {
-                  assert(0);
-                  //relaxed_primal_obj = stochastic_subgradient_descent(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, sm, sparm, valid_examples);
+        stochastic_subgradient_descent(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, sm, sparm, valid_examples,valid_example_kernels);
      }
 
 	
@@ -1226,8 +1220,7 @@ int main(int argc, char* argv[]) {
 		  if(!sparm.optimizer_type) {
 		    primal_obj = cutting_plane_algorithm(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples, valid_example_kernels);
 		  } else {
-		    assert(0);
-			  //primal_obj = stochastic_subgradient_descent(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples);
+			primal_obj = stochastic_subgradient_descent(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples,valid_example_kernels);
 		  }
   		for (i=0;i<m;i++) {
 //   	 		free_latent_var(ex[i].h);

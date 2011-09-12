@@ -19,6 +19,7 @@
 
 # include "svm_light/svm_common.h"
 #include <pthread.h>
+#include "ess.hh"
 
 typedef struct pattern {
   /*
@@ -49,6 +50,7 @@ typedef struct point_and_descriptor {
 typedef struct image_kernel_cache {
   int num_points;
   POINT_AND_DESCRIPTOR * points_and_descriptors;
+  Box* object_boxes;
 } IMAGE_KERNEL_CACHE;
 
 typedef struct label {

@@ -29,6 +29,7 @@
 #define BASE_DIR "/Users/rafiwitten/scratch/mkl_features/"
 #define CONST_FILENAME_PART "_spquantized_1000_"
 #define CONST_FILENAME_SUFFIX ".mat"
+#define NUM_BBOXES_PER_IMAGE 900
 
 #define BASE_HEIGHT 75
 #define BASE_WIDTH 125
@@ -369,6 +370,28 @@ void cut_off_last_column(IMAGE_KERNEL_CACHE * ikc) {
   ikc->num_points = last_p;
 }
 
+void fill_possible_object_cache(PATTERN x,int kernel_ind, IMAGE_KERNEL_CACHE* ikc, STRUCTMODEL* sm)
+{
+  char filename[1024];
+  sprintf(filename, "%s/%s.txt",BASE_DIR,x.image_path);
+  printf("Opening %s\n", filename);
+  FILE* fp = fopen(filename,"r");
+  assert(fp);
+  ikc->object_boxes = (Box*) malloc(sizeof(Box)*NUM_BBOXES_PER_IMAGE); 
+  for(int p = 0 ; p < NUM_BBOXES_PER_IMAGE ; p++)
+  {
+    float throwaway_score;
+    fscanf(fp, "%d %d %d %d %f", &(ikc->object_boxes[p].left), &(ikc->object_boxes[p].top), &(ikc->object_boxes[p].right),
+       &(ikc->object_boxes[p].bottom), &throwaway_score); 
+    assert( ikc->object_boxes[p].left);
+    assert( ikc->object_boxes[p].top);
+    assert( ikc->object_boxes[p].right);
+    assert( ikc->object_boxes[p].bottom);
+//    printf("New bbox is %d %d %d %d\n", ikc->object_boxes[p].left, ikc->object_boxes[p].top, ikc->object_boxes[p].right, ikc->object_boxes[p].bottom);
+  }
+  fclose(fp);
+}
+
 void fill_image_kernel_cache(PATTERN x, int kernel_ind, IMAGE_KERNEL_CACHE * ikc, STRUCTMODEL * sm) {
   int p;
   char throwaway_line[1024];
@@ -382,7 +405,7 @@ void fill_image_kernel_cache(PATTERN x, int kernel_ind, IMAGE_KERNEL_CACHE * ikc
     assert(ikc->points_and_descriptors[p].y > 0);
   }
   fclose(fp);
- 
+
   /*this will sort points by x, and within that, by y*/
   qsort(ikc->points_and_descriptors, ikc->num_points, sizeof(POINT_AND_DESCRIPTOR), pad_cmp);
   
@@ -420,6 +443,14 @@ void try_cache_image(PATTERN x, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL
     cached_images[x.example_id] = (IMAGE_KERNEL_CACHE *)malloc(sm->num_kernels * sizeof(IMAGE_KERNEL_CACHE));
     IMAGE_KERNEL_CACHE * kernel_caches_for_image = cached_images[x.example_id];
     for (k = 0; k < sm->num_kernels; ++k) {
+      if(k==0)
+      {
+        fill_possible_object_cache(x,k, &(kernel_caches_for_image[k]), sm);
+      }
+      else
+      {
+        kernel_caches_for_image[k].object_boxes = NULL;
+      }
       fill_image_kernel_cache(x, k, &(kernel_caches_for_image[k]), sm);
     }
   }
@@ -752,11 +783,11 @@ void compute_highest_scoring_latents_hallucinate(PATTERN x,LABEL y,IMAGE_KERNEL_
 			int solvedExactly=1;
 			assert(curr_point == total_indices);
 			int N = sparm->do_spm ? 2 : 1;
-
 			Box ourbox = pyramid_search(total_indices, 1+(int)(x.width_pixel), 1+(int)(x.height_pixel),
 											 argxpos, argypos, argclst,
 												sm->sizeSinglePsi, N, w,
-												1e9, solvedExactly, factor);
+												1e9, solvedExactly, factor,
+                                                NUM_BBOXES_PER_IMAGE, cached_images[x.example_id][0].object_boxes ); 
 
 			LATENT_BOX h_temp;
 			h_temp.position_x_pixel=ourbox.left; /* starting position of object */
@@ -866,7 +897,8 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		Box ourbox = pyramid_search(total_indices, 1+(int)(x.width_pixel), 1+(int)(x.height_pixel),
 										 argxpos, argypos, argclst,
 											sm->sizeSinglePsi, N, w,
-											1e9, solvedExactly, factor);
+											1e9, solvedExactly, factor,
+                                            NUM_BBOXES_PER_IMAGE, cached_images[x.example_id][0].object_boxes);
 
 		LATENT_BOX h_temp;
 		h_temp.position_x_pixel=ourbox.left; /* starting position of object */
@@ -881,7 +913,7 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 
 //		printf("given width %d given height %d num points %d\n",  1+(int)(x.width_pixel/factor),  1+(int)(x.height_pixel/factor), curr_point);
 		double ourscore = compute_w_T_psi(&x, h_latent_var, y_curr.label,cached_images, valid_kernels, sm, sparm);
-
+//        printf("Score we get for a positive box is %f\n", ourscore);
 		if(ourscore+loss>*max_score)
 		{
 			*max_score = ourscore+loss;
@@ -978,7 +1010,7 @@ void find_most_violated_constraint_marginrescaling(PATTERN x, LATENT_VAR hstar, 
 		{
 			LABEL y_curr;
 			y_curr.label = cur_class;
-			if(cur_class != y.label)
+			if(cur_class != y.label) //so we take a penalty of one for the misclassification.
 			{
 				if(sparm->do_hallucinate)
 					compute_highest_scoring_latents_hallucinate(x,y,cached_images,valid_kernels,sm,sparm,&max_score,hbar,ybar,y_curr);
@@ -1162,7 +1194,7 @@ void parse_struct_parameters(STRUCT_LEARN_PARM *sparm) {
   sparm->n_classes = 2;
   sparm->pos_neg_cost_ratio = 1.0;
   sparm->C = 10000;
-  sparm->prox_weight  = .1 ;
+  sparm->prox_weight  = 0.1 ;
   for (i=0;(i<sparm->custom_argc)&&((sparm->custom_argv[i])[0]=='-');i++) {
     switch ((sparm->custom_argv[i])[2]) {
       /* your code here */

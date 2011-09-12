@@ -149,8 +149,9 @@ extern "C" {
 Box pyramid_search(int argnumpoints, int argwidth, int argheight, 
                    double* argxpos, double* argypos, double* argclst,
                    int argnumclusters, int argnumlevels, double* argweight,
-									 double maxiterations, int& solvedExactly, int factor) {
-		Box outputBox = {-1, -1, -1, -1, -1.};
+				 double maxiterations, int& solvedExactly, int factor,
+                     int NUM_BOXES, Box* boxes) {
+	Box outputBox = {-1, -1, -1, -1, -1.};
     argwidth += 1; // make space for 1 pixel padding
     argheight += 1;
    PyramidQualityFunction quality_bound;
@@ -174,9 +175,9 @@ Box pyramid_search(int argnumpoints, int argwidth, int argheight,
     sstate* single = new sstate(round_down(argwidth-1,factor), round_down(argheight-1,factor));
     sstate* best = new sstate(round_down(argwidth-1,factor), round_down(argheight-1,factor));
 
-		sstate* single_original= single;
-		sstate* best_original = best;
-		best->upper =  -1e10;
+    sstate* single_original= single;
+    sstate* best_original = best;
+    best->upper =  -1e10;
 //    sstate* fullspace = new sstate(round_down(argwidth-1,factor), round_down(argheight-1,factor));
     
 // push first box set into priority queue
@@ -191,31 +192,22 @@ Box pyramid_search(int argnumpoints, int argwidth, int argheight,
 		gettimeofday(&start_time, NULL);
 		struct timeval end_time;
 		int counter = 0;
-// main loop. Iterate extract/split/evaluate/reinsert until convergence or forced exit
-		for(int curr_lower_y = 1; curr_lower_y<=upper_y; curr_lower_y+=factor)
-		{
-			for(int curr_upper_y=curr_lower_y; curr_upper_y <= upper_y ; curr_upper_y+=factor)
-			{
-				for(int curr_lower_x = 1; curr_lower_x<=upper_x; curr_lower_x+=factor)
-				{
-					for(int curr_upper_x=curr_lower_x; (curr_upper_x <= upper_x); curr_upper_x+=factor)
-					{
-						single->only[0] = curr_lower_x;
-						single->only[1] = curr_lower_y;
-						single->only[2] = curr_upper_x;
-						single->only[3] = curr_upper_y;
-						single->upper = quality_bound.upper_bound(single);
-						if(single->upper > best->upper)
-						{
-							sstate* temp = best;
-							best = single;
-							single = temp;
-						}
-						counter++;
-					}
-				}
-			}
-		}
+
+        for(int p = 0 ; p < NUM_BOXES ; p++)
+        {
+            single->only[0] = boxes[p].left;
+            single->only[1] = boxes[p].top;
+            single->only[2] = boxes[p].right;
+            single->only[3] = boxes[p].bottom;
+            single->upper = quality_bound.upper_bound(single);
+            if(single->upper > best->upper)
+            {
+                sstate* temp = best;
+                best = single;
+                single = temp;
+            }
+            counter++;
+         }
 
 		if(best->upper<0)
 		{
