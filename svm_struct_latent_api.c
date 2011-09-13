@@ -26,7 +26,8 @@
 
 #define MAX_INPUT_LINE_LENGTH 10000
 #define DELTA 1
-#define BASE_DIR "/Users/rafiwitten/scratch/mkl_features/"
+#define BASE_DIR "/afs/cs.stanford.edu/u/rwitten/scratch/mkl_features/"
+//#define BASE_DIR "/Users/rafiwitten/scratch/mkl_features/"
 #define CONST_FILENAME_PART "_spquantized_1000_"
 #define CONST_FILENAME_SUFFIX ".mat"
 #define NUM_BBOXES_PER_IMAGE 900
@@ -374,7 +375,7 @@ void fill_possible_object_cache(PATTERN x,int kernel_ind, IMAGE_KERNEL_CACHE* ik
 {
   char filename[1024];
   sprintf(filename, "%s/%s.txt",BASE_DIR,x.image_path);
-  printf("Opening %s\n", filename);
+//  printf("Opening %s\n", filename);
   FILE* fp = fopen(filename,"r");
   assert(fp);
   ikc->object_boxes = (Box*) malloc(sizeof(Box)*NUM_BBOXES_PER_IMAGE); 
@@ -930,7 +931,7 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 //		double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
 //		printf("ESS took %f \n", microseconds/1000);
 //		printf("ESS got score %f and we got score %f\n", ourbox.score, ourscore-sm->w[1]);
-		//assert((ourscore - sm->w[1] - ourbox.score < 1e-1)&&((-ourscore +sm->w[1])+ ourbox.score < 1e-1));
+//		assert((ourscore - sm->w[1] - ourbox.score < 1e-4)&&((-ourscore +sm->w[1])+ ourbox.score < 1e-4));
 		/*if(!( (ourscore - sm->w[1] - ourbox.score < 1e-5)&&(ourscore -sm->w[1]- ourbox.score > -1e-5)))
 		{
 			printf("ESS got score %f and we got score %f\n", ourbox.score, ourscore-sm->w[1]);

@@ -7,17 +7,17 @@ cd $base_dir
 
 for randomness in 1
 do
-	for classfold in 'small'
+	for classfold in  'small' 'car'
 	do
 		for foldnum in 1
 		do
-			for C in  1
+			for C in  .5 1 5
 			do
-				for l in 0
+				for l in 0 1
 				do
-					for h in 0
+					for h in 0 1
 					do
-						for algorithm in  1
+						for algorithm in  1 2 3
 						do
 							num_neg=`cat data/train.${classfold}_1.txt | grep ' 0 ' | wc -l`
 							num_pos=`cat data/train.${classfold}_1.txt | grep ' 1 ' | wc -l`
@@ -53,7 +53,7 @@ do
 								continue
 							fi
 							echo "Posting job " ${base_dir}/${script_name}
-#							~/bin/appendJob.pl ${base_dir}/${script_name}
+							~/bin/appendJob.pl ${base_dir}/${script_name}
 						done
 					done
 				done
