@@ -1223,8 +1223,9 @@ int main(int argc, char* argv[]) {
 			primal_obj = stochastic_subgradient_descent(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples,valid_example_kernels);
 		  }
   		for (i=0;i<m;i++) {
-//   	 		free_latent_var(ex[i].h);
-   	 		LATENT_VAR h_temp = infer_latent_variables(ex[i].x, ex[i].y, cached_images, &sm, &sparm);
+   	 			LATENT_VAR h_temp = ex[i].h;
+      	  ex[i].h = infer_latent_variables(ex[i].x, ex[i].y, cached_images, &sm, &sparm);
+          free_latent_var(h_temp);
    		}
 	    for (i=0;i<m;i++) {
   	    free_svector(fycache[i]);
