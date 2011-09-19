@@ -429,7 +429,6 @@ SVECTOR* find_cutting_plane(EXAMPLE *ex, SVECTOR **fycache, double *margin, long
   find_psi_parallel(m, ex, y_list, h_list, cached_images, valid_example_kernels, sm, sparm,fys);
   find_psi_parallel(m, ex, ybar_list, hbar_list, cached_images, valid_example_kernels, sm, sparm,fybars);
 
-  printf("Made it by the parallel psis\n"); fflush(stdout);
   for (i=0;i<m;i++) {
 
         if (!valid_examples[i]) {
@@ -837,7 +836,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
             memcpy(w_best, w, sizeof(double)*(sm->sizePsi+2));
         }
 
-        if( (iter % ITERS_TO_UPDATE_LOWER_BOUND) == 2)
+        if( (iter % ITERS_TO_UPDATE_LOWER_BOUND) == 0)
         {
             double lb1;
             r = mosek_qp_optimize(G, delta, alpha_lb, (long) size_active, C, &lb1); // unregularized solve
