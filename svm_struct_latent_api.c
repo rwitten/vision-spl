@@ -30,7 +30,7 @@
 //#define BASE_DIR "/Users/rafiwitten/scratch/mkl_features/"
 #define CONST_FILENAME_PART "_spquantized_1000_"
 #define CONST_FILENAME_SUFFIX ".mat"
-#define NUM_BBOXES_PER_IMAGE 900
+#define NUM_BBOXES_PER_IMAGE 800
 
 #define BASE_HEIGHT 75
 #define BASE_WIDTH 125

@@ -7,11 +7,11 @@ cd $base_dir
 
 for randomness in 1
 do
-	for classfold in  'small' 'car'
+	for classfold in  'car'
 	do
 		for foldnum in 1
 		do
-			for C in  .5 1 5
+			for C in  .1
 			do
 				for l in 0 1
 				do
