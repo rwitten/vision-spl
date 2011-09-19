@@ -38,7 +38,7 @@
 #define STOP_PREC 1E-2
 #define UPDATE_BOUND 3
 #define MAX_CURRICULUM_ITER 10
-#define NUM_THREADS 12
+#define NUM_THREADS 0
 #define MAX_OUTER_ITER 20
 #define SSG_PRINT_ITERS 100
 

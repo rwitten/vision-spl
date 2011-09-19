@@ -29,7 +29,7 @@
 #define BASE_DIR "/Users/rafiwitten/scratch/mkl_features/"
 #define CONST_FILENAME_PART "_spquantized_1000_"
 #define CONST_FILENAME_SUFFIX ".mat"
-#define NUM_BBOXES_PER_IMAGE 900
+#define NUM_BBOXES_PER_IMAGE 800
 
 #define BASE_HEIGHT 75
 #define BASE_WIDTH 125
@@ -676,7 +676,7 @@ SVECTOR* psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cached_imag
 		free_latent_var(subset_box);
 		for(int subset = 1; subset<NUM_WINDOWS; subset++)
 		{
-		  subset_box = choose_subset(h,subset,sparm,sm);
+		    subset_box = choose_subset(h,subset,sparm,sm);
 			SVECTOR* addl_part = single_psi(x,y,subset_box,cached_images,valid_kernels,sm,sparm,1+sm->sizeSinglePsi*subset);
 			free_latent_var(subset_box);
 			SVECTOR* newfvec = add_ss(fvec,addl_part);
@@ -927,8 +927,8 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		}
 
 		gettimeofday(&end_time, NULL);
-//		double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
-//		printf("ESS took %f \n", microseconds/1000);
+		double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
+		printf("ESS took %f \n", microseconds/1000);
 //		printf("ESS got score %f and we got score %f\n", ourbox.score, ourscore-sm->w[1]);
 		//assert((ourscore - sm->w[1] - ourbox.score < 1e-1)&&((-ourscore +sm->w[1])+ ourbox.score < 1e-1));
 		/*if(!( (ourscore - sm->w[1] - ourbox.score < 1e-5)&&(ourscore -sm->w[1]- ourbox.score > -1e-5)))
@@ -1194,7 +1194,7 @@ void parse_struct_parameters(STRUCT_LEARN_PARM *sparm) {
   sparm->n_classes = 2;
   sparm->pos_neg_cost_ratio = 1.0;
   sparm->C = 10000;
-  sparm->prox_weight  = 0.1 ;
+  sparm->prox_weight  = 0 ;
   for (i=0;(i<sparm->custom_argc)&&((sparm->custom_argv[i])[0]=='-');i++) {
     switch ((sparm->custom_argv[i])[2]) {
       /* your code here */
