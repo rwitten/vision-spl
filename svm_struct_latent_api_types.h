@@ -148,6 +148,22 @@ typedef struct spl_variable_struct {
   int ** valid_kernel_indices_per_example; //has an array for each example (including those with no valid kernels)
 } SPL_VAR_STRUCT;
 
+typedef struct psi_job {
+    int m;
+    int* curr_task;
+    int* completed_tasks;
+    pthread_mutex_t* curr_lock;
+    pthread_mutex_t* completed_lock;
+    EXAMPLE* ex_list;
+    LABEL* ybar_list;
+    LATENT_VAR* hbar_list;
+    IMAGE_KERNEL_CACHE** cached_images;
+    STRUCTMODEL* sm;
+    STRUCT_LEARN_PARM* sparm;
+    SVECTOR** output_vectors;
+    int** valid_example_kernels;
+} psi_job;
+
 typedef struct fmvc_job {
     int m;
     int* curr_task;

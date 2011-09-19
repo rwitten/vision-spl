@@ -233,6 +233,38 @@ int compar(const void *a, const void *b)
   return 0;
 }
 
+void* handle_psi(void* inputa)
+{
+    psi_job* background  = (psi_job*) inputa;
+
+    int more_work_to_do = 1;
+    while(more_work_to_do)
+    {
+       pthread_mutex_lock(background->curr_lock);
+       int curr_task = *(background->curr_task);
+        *(background->curr_task)= curr_task + 1;
+        pthread_mutex_unlock(background->curr_lock);
+
+        if(curr_task>=background->m) //we're done
+        {
+            more_work_to_do = 0;
+        }
+        else  //have to do the job
+        {
+            background->output_vectors[curr_task] = psi((background->ex_list[curr_task].x), (background->ybar_list[curr_task]), (background->hbar_list[curr_task]), background->cached_images, background->valid_example_kernels[curr_task], background->sm, background->sparm); 
+
+             pthread_mutex_lock(background->completed_lock);
+             int completed_tasks = *(background->completed_tasks);
+             *(background->completed_tasks)= completed_tasks + 1;
+             pthread_mutex_unlock(background->completed_lock);
+	    }
+    }
+   if(NUM_THREADS)
+	   pthread_exit(0);
+	 else
+	 	 return NULL;
+}
+
 void* handle_fmvc(void* inputa)
 {
     fmvc_job* background  = (fmvc_job*) inputa;
@@ -266,6 +298,49 @@ void* handle_fmvc(void* inputa)
 	 	 return NULL;
 }
 
+void find_psi_parallel(int m,EXAMPLE* ex_list, LABEL* ybar_list, LATENT_VAR* hbar_list, IMAGE_KERNEL_CACHE ** cached_images, int ** valid_example_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, SVECTOR** output_vectors)
+{
+    pthread_t mythreads[NUM_THREADS];
+    int curr_task = 0;
+    int completed_tasks = 0;
+
+    pthread_mutex_t completed_lock;
+    pthread_mutex_init(&completed_lock, NULL);
+    pthread_mutex_t curr_lock;
+    pthread_mutex_init(&curr_lock, NULL);
+
+    psi_job background;
+    background.valid_example_kernels = valid_example_kernels;
+    background.m = m;
+    background.curr_task = &curr_task;
+    background.completed_tasks = &completed_tasks;
+    background.curr_lock = &curr_lock;
+    background.completed_lock = &completed_lock;
+    background.ex_list = ex_list;
+    background.ybar_list = ybar_list;
+    background.hbar_list = hbar_list;
+    background.output_vectors = output_vectors;
+    background.cached_images = cached_images;
+    background.sm = sm;
+    background.sparm = sparm;
+    int i;
+    for(i=0; i < NUM_THREADS; i++)
+    {
+        pthread_create(&mythreads[i], NULL, handle_psi, &background);
+    }
+
+    if(NUM_THREADS)
+    {
+        for(i=0; i<NUM_THREADS;i++)
+        {
+             pthread_join(mythreads[i],NULL);
+        }
+    }
+    else
+    {
+        handle_psi(&background);
+    }
+}
 
 void find_most_violated_constraint_parallel(int m,EXAMPLE* ex_list, LABEL* ybar_list, LATENT_VAR* hbar_list, IMAGE_KERNEL_CACHE ** cached_images, int * valid_examples, int ** valid_example_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm)
 {
@@ -299,42 +374,24 @@ void find_most_violated_constraint_parallel(int m,EXAMPLE* ex_list, LABEL* ybar_
     }
 
     if(NUM_THREADS)
-		{
-			for(i=0; i<NUM_THREADS;i++)
-			{
-					pthread_join(mythreads[i],NULL);
-			}
-		}
-		else
-		{
-			handle_fmvc(&background);
-		}
-
-/*    int more_work_to_do = 1;
-    while(more_work_to_do)
     {
-//        sleep(1);
-        usleep(1000); //sleep for a ms
-        pthread_mutex_lock(&completed_lock);
-        int num_completed = completed_tasks;
- //       printf("num completed%d\n", num_completed);
-        pthread_mutex_unlock(&completed_lock);
-        if (num_completed >= m)
+        for(i=0; i<NUM_THREADS;i++)
         {
-            more_work_to_do = 0;
+             pthread_join(mythreads[i],NULL);
         }
-    }*/
-
-    /*for(i=0; i <m ; i++)
+    }
+    else
     {
-        find_most_violated_constraint(&(ex_list[i]), &ybar_list[i], &hbar_list[i], cached_images, sm, sparm);
-    }*/
+        handle_fmvc(&background);
+    }
 }
 
 SVECTOR* find_cutting_plane(EXAMPLE *ex, SVECTOR **fycache, double *margin, long m, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int *valid_examples, int** valid_example_kernels) {
 
   long i;
-  SVECTOR *f, *fy, *fybar, *lhs;
+  SVECTOR *f, *lhs;
+  SVECTOR** fys = (SVECTOR**) malloc(m*sizeof(SVECTOR*));
+  SVECTOR** fybars = (SVECTOR**) malloc(m*sizeof(SVECTOR*));
   LABEL       ybar;
   double lossval;
   double *new_constraint;
@@ -356,53 +413,66 @@ SVECTOR* find_cutting_plane(EXAMPLE *ex, SVECTOR **fycache, double *margin, long
 
   LABEL*       ybar_list =(LABEL*) ( malloc(m*sizeof(LABEL)));
   LATENT_VAR* hbar_list = (LATENT_VAR*)(malloc(m*sizeof(LATENT_VAR)));
-	for(int i = 0; i < m ; i++)
-		hbar_list[i] = make_latent_var(sm);
+  for(int i = 0; i < m ; i++)
+    hbar_list[i] = make_latent_var(sm);
 
 
-  struct timeval start_time;
-  struct timeval finish_time;
-  gettimeofday(&start_time, NULL);
   find_most_violated_constraint_parallel(m,ex, ybar_list, hbar_list, cached_images,valid_examples, valid_example_kernels,  sm, sparm);
-  gettimeofday(&finish_time, NULL);
-//  double microseconds = 1e6 * (int)(finish_time.tv_sec - start_time.tv_sec) + (int)(finish_time.tv_usec - start_time.tv_usec);
-//	printf("FMVC took %f milliseconds\n", microseconds/1000);
 
+  LABEL*       y_list =(LABEL*) ( malloc(m*sizeof(LABEL)));
+  LATENT_VAR* h_list = (LATENT_VAR*)(malloc(m*sizeof(LATENT_VAR)));
+  for(int i = 0 ; i < m ; i++)
+  {
+    h_list[i] = ex[i].h;//shallow copy of latent vars so don't screw with it.
+    y_list[i] = ex[i].y;
+  }
+  find_psi_parallel(m, ex, y_list, h_list, cached_images, valid_example_kernels, sm, sparm,fys);
+  find_psi_parallel(m, ex, ybar_list, hbar_list, cached_images, valid_example_kernels, sm, sparm,fybars);
+
+  printf("Made it by the parallel psis\n"); fflush(stdout);
   for (i=0;i<m;i++) {
 
         if (!valid_examples[i]) {
             continue;
         }
 
-    /* get difference vector */
-    fy = psi(ex[i].x,ex[i].y,ex[i].h,cached_images, valid_example_kernels[i],sm,sparm);
-    fybar = psi(ex[i].x,ybar_list[i],hbar_list[i],cached_images, valid_example_kernels[i],sm,sparm);
+
     lossval = loss(ex[i].y,ybar_list[i],hbar_list[i],sparm);
     //printf("for image %d loss is %f\n", i, lossval);
     free_label(ybar);
 		
     /* scale difference vector */
-    for (f=fy;f;f=f->next) {
+    for (f=fys[i];f;f=f->next) {
       //f->factor*=1.0/m;
       //f->factor*=ex[i].x.example_cost/m;
       f->factor*=ex[i].x.example_cost/valid_count;
     }
-    for (f=fybar;f;f=f->next) {
+    for (f=fybars[i];f;f=f->next) {
       //f->factor*=-1.0/m;
       //f->factor*=-ex[i].x.example_cost/m;
       f->factor*=-ex[i].x.example_cost/valid_count;
     }
     /* add ybar to constraint */
-    append_svector_list(fy,lhs);
-    append_svector_list(fybar,fy);
-    lhs = fybar;
+    append_svector_list(fys[i],lhs);
+    append_svector_list(fybars[i],fys[i]);
+    lhs = fybars[i];
     //*margin+=lossval/m;
     //*margin+=lossval*ex[i].x.example_cost/m;
     *margin+=lossval*ex[i].x.example_cost/valid_count;
   }
   free(ybar_list);
-	for(int i = 0 ; i < m ; i++)
-		free_latent_var(hbar_list[i]);
+  free(y_list);
+  free(h_list);
+  
+  /*for(int i = 0 ; i < m ; i++)
+  {
+    free(fys[i]);
+    free(fybars[i]);
+  }*/
+  free(fys);
+  free(fybars);
+  for(int i = 0 ; i < m ; i++)
+	free_latent_var(hbar_list[i]);
   free(hbar_list);
   /* compact the linear representation */
   new_constraint = add_list_nn(lhs, sm->sizePsi+1);
