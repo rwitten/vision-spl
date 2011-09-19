@@ -833,7 +833,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
       
   /* free memory */
   for (j=0;j<size_active;j++) {
-		free(G[j]);
+	free(G[j]);
     free_example(dXc[j],1);	
   }
   memcpy(w,w_best, sizeof(double)*(sm->sizePsi+2));
@@ -1107,27 +1107,27 @@ int main(int argc, char* argv[]) {
   EXAMPLE *ex;
 	SAMPLE alldata;
   SAMPLE sample;
-	SAMPLE val;
+  SAMPLE val;
   STRUCT_LEARN_PARM sparm;
   STRUCTMODEL sm;
   
   double decrement;
   double primal_obj, last_primal_obj;
   double stop_crit=-1; 
-	char itermodelfile[2000];
+  char itermodelfile[2000];
 
-	/* self-paced learning variables */
-	double init_spl_weight;
-	double* spl_weight_pos;
+  /* self-paced learning variables */
+  double init_spl_weight;
+  double* spl_weight_pos;
   double* spl_weight_neg;
-	double spl_factor;
-	int *valid_examples;
+  double spl_factor;
+  int *valid_examples;
  
 
   /* read input parameters */
   my_read_input_parameters(argc, argv, trainfile, modelfile, examplesfile, timefile, latentfile, &learn_parm, &kernel_parm, &sm, &sparm, &init_spl_weight, &spl_factor);
 
-  epsilon = learn_parm.eps;
+  epsilon = learn_parm.eps*10;
   C = learn_parm.svm_c;
   MAX_ITER = learn_parm.maxiter;
 
@@ -1137,38 +1137,36 @@ int main(int argc, char* argv[]) {
   /* read in examples */
   alldata = read_struct_examples(trainfile, &sm, &sparm);
   int ntrain = (int) floor(1.0*alldata.n + 0.5); /* no validation set */
-	if(ntrain < alldata.n)
-	{	
-	 assert(0);
-	 srand(time(NULL));
- 	 long *perm = randperm(alldata.n,alldata.n);
- 	 sample = generate_train_set(alldata, perm, ntrain);
- 	 val = generate_validation_set(alldata, perm, ntrain);
- 	 free(perm);
-	}
-	else
-	{
-		sample = alldata;
-	}
-  ex = sample.examples;
-  IMAGE_KERNEL_CACHE ** cached_images = init_cached_images(ex,&sm);
-  m = sample.n;
+    if(ntrain < alldata.n)
+    {	
+        assert(0);
+        srand(time(NULL));
+        long *perm = randperm(alldata.n,alldata.n);
+        sample = generate_train_set(alldata, perm, ntrain);
+        val = generate_validation_set(alldata, perm, ntrain);
+        free(perm);
+    }
+    else
+    {
+        sample = alldata;
+    }
+    ex = sample.examples;
+    IMAGE_KERNEL_CACHE ** cached_images = init_cached_images(ex,&sm);
+    m = sample.n;
 
-  w = create_nvector(sm.sizePsi+1);
-  clear_nvector(w, sm.sizePsi+1);
-  sm.w = w; /* establish link to w, as long as w does not change pointer */
+    w = create_nvector(sm.sizePsi+1);
+    clear_nvector(w, sm.sizePsi+1);
+    sm.w = w; /* establish link to w, as long as w does not change pointer */
 
   /* some training information */
   printf("m = %ld\n", m);
   printf("C: %.8g\n", C);
-	printf("spl weight: %.8g\n",init_spl_weight);
-  printf("epsilon: %.8g\n", epsilon);
+  printf("spl weight: %.8g\n",init_spl_weight);
+  printf("epsilon orig: %.8g\n", epsilon);
+  printf("epsilon target: %.8g\n",learn_parm.eps );
   printf("sample.n: %d\n", sample.n); 
   printf("sm.sizePsi: %ld\n", sm.sizePsi); fflush(stdout);
   
-
-
-
   /* impute latent variable for first iteration */
   init_latent_variables(&sample,&learn_parm,&sm,&sparm);
 
@@ -1218,7 +1216,7 @@ int main(int argc, char* argv[]) {
 		int initIter;
 		for (initIter=0;initIter<2;initIter++) { // Rafi: Initial iterations here
 		  if(!sparm.optimizer_type) {
-		    primal_obj = cutting_plane_algorithm(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples, valid_example_kernels);
+		    primal_obj = cutting_plane_algorithm(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples, valid_example_kernels); // here we use the original epsilon (which is very lenient)
 		  } else {
 			primal_obj = stochastic_subgradient_descent(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples,valid_example_kernels);
 		  }
@@ -1293,100 +1291,102 @@ int main(int argc, char* argv[]) {
        }
        printf("for negative examples spl weights are %.4f %.4f %.4f %.4f %.4f\n", spl_weight_neg[0], spl_weight_neg[1], spl_weight_neg[2], spl_weight_neg[3], spl_weight_neg[3]);
        printf("for positive examples spl weights are %.4f %.4f %.4f %.4f %.4f\n", spl_weight_pos[0], spl_weight_pos[1], spl_weight_pos[2], spl_weight_pos[3], spl_weight_pos[3]);
-    printf("\n\n\nOUTER ITER %d here \n\n\n", outer_iter); 
+    printf("\n\n\nOUTER ITER %d here at epsilon %f \n\n\n", outer_iter, epsilon); 
     /* cutting plane algorithm */
 
 		/* solve biconvex self-paced learning problem */
-    primal_obj = alternate_convex_search(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples, valid_example_kernels, spl_weight_pos, spl_weight_neg);
-		int nValid = 0;
-		for (i=0;i<m;i++) {
+        primal_obj = alternate_convex_search(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples, valid_example_kernels, spl_weight_pos, spl_weight_neg);
+        int nValid = 0;
+        for (i=0;i<m;i++) {
             for(k=0;k<sm.num_kernels;k++) {
-			    fprintf(fexamples,"%d ",(2*(ex[i].y.label)-1)*valid_example_kernels[i][k]);
+                fprintf(fexamples,"%d ",(2*(ex[i].y.label)-1)*valid_example_kernels[i][k]);
             }
             print_latent_var(ex[i].x, ex[i].h,flatent);
             int isValid = 1;
             int this_kernel;
-	    for(this_kernel=0;this_kernel<sm.num_kernels;this_kernel++){
-				if(!valid_example_kernels[i][this_kernel])
-				{
-          isValid=0;
-				}
-			}
-      nValid+=isValid;
-		}
-		fprintf(fexamples,"\n"); fflush(fexamples);
-		fprintf(flatent,"\n"); fflush(flatent);
-		clock_t finish = clock();
-		fprintf(ftime,"%f %f\n",primal_obj,(((double)(finish-start))/CLOCKS_PER_SEC)); fflush(ftime);
-    
-    /* compute decrement in objective in this outer iteration */
-    decrement = last_primal_obj - primal_obj;
-    last_primal_obj = primal_obj;
-    printf("primal objective (THIS IS THE MONEY SHOT): %.4f\n", primal_obj);
-		if (outer_iter) {
-    	printf("decrement (outer iter): %.4f\n", decrement); fflush(stdout);
-		}
-		else {
-			printf("decrement (outer iter): N/A\n"); fflush(stdout);
-		}
-   
-	/* additional stopping criteria */
-		 
-    /* impute latent variable using updated weight vector */
-		latent_update=0;
-		if(nValid) {
-        	for (i=0;i<m;i++) {
-//								printf("What changes? \n");
-								LATENT_VAR h_temp = ex[i].h;
-      	        ex[i].h = infer_latent_variables(ex[i].x, ex[i].y, cached_images, &sm, &sparm);
-//								printf("newlatent var\n");
-//								print_lv(ex[i].h);
-//								printf("old latent var\n");
-//								print_lv(h_temp);
-           	    free_latent_var(h_temp);
-    	    }
-		}
-	 	stop_crit = 1;
-    if(decrement>C*epsilon)
-		{
-			printf("NOT STOPPING BECAUSE OF DESCENT\n");
-			stop_crit = 0;
-		}
-	
-		if(nValid < m)
-    {
-      printf("NOT STOPPING BECAUSE OF NVALIDS\n");
-			stop_crit = 0;
-    }
-    /* re-compute feature vector cache */
-    for (i=0;i<m;i++) {
-      free_svector(fycache[i]);
-      fy = psi(ex[i].x, ex[i].y, ex[i].h, cached_images, all_ones, &sm, &sparm);
-      diff = add_list_ss(fy);
-      free_svector(fy);
-      fy = diff;
-      fycache[i] = fy;
-    }
+            for(this_kernel=0;this_kernel<sm.num_kernels;this_kernel++){
+                if(!valid_example_kernels[i][this_kernel])
+                {
+                    isValid=0;
+                }
+            }
+            nValid+=isValid;
+        }
+        fprintf(fexamples,"\n"); fflush(fexamples);
+        fprintf(flatent,"\n"); fflush(flatent);
+        clock_t finish = clock();
+        fprintf(ftime,"%f %f\n",primal_obj,(((double)(finish-start))/CLOCKS_PER_SEC)); fflush(ftime);
+        
+        /* compute decrement in objective in this outer iteration */
+        decrement = last_primal_obj - primal_obj;
+        last_primal_obj = primal_obj;
+        printf("primal objective (THIS IS THE MONEY SHOT): %.4f\n", primal_obj);
+        if (outer_iter) {
+            printf("decrement (outer iter): %.4f\n", decrement); fflush(stdout);
+        }
+        else {
+            printf("decrement (outer iter): N/A\n"); fflush(stdout);
+        }
+       
+        /* additional stopping criteria */
+             
+        /* impute latent variable using updated weight vector */
+        latent_update=0;
+        if(nValid) {
+            for (i=0;i<m;i++) {
+                LATENT_VAR h_temp = ex[i].h;
+                ex[i].h = infer_latent_variables(ex[i].x, ex[i].y, cached_images, &sm, &sparm);
+                free_latent_var(h_temp);
+            }
+        }
+        stop_crit = 1;
+        if(decrement>C*epsilon)
+        {
+            printf("NOT STOPPING BECAUSE OF DESCENT\n");
+            stop_crit = 0;
+        }
+        
+        if(nValid < m)
+        {
+            printf("NOT STOPPING BECAUSE OF NVALIDS\n");
+            stop_crit = 0;
+        }
+
+        if(epsilon>learn_parm.eps)
+        {
+            printf("NOT STOPPING BECAUSE OF EPSILON\n");
+            epsilon = MAX(learn_parm.eps, epsilon/3);
+            stop_crit = 0;
+        }
+        /* re-compute feature vector cache */
+        for (i=0;i<m;i++) {
+          free_svector(fycache[i]);
+          fy = psi(ex[i].x, ex[i].y, ex[i].h, cached_images, all_ones, &sm, &sparm);
+          diff = add_list_ss(fy);
+          free_svector(fy);
+          fy = diff;
+          fycache[i] = fy;
+        }
 		printf("computing new objective value\n"); fflush(stdout);
-    primal_obj = current_obj_val(ex, fycache, m, cached_images, &sm, &sparm, C, allon_examples, allon_example_kernels);
-    printf("primal object (AFTER IMPUTATION): %f\n", primal_obj);
+        primal_obj = current_obj_val(ex, fycache, m, cached_images, &sm, &sparm, C, allon_examples, allon_example_kernels);
+        printf("primal object (AFTER IMPUTATION): %f\n", primal_obj);
 		sprintf(itermodelfile,"%s.%04d",modelfile,outer_iter);
 		write_struct_model(itermodelfile, &sm, &sparm);
 
-    outer_iter++;
+        outer_iter++;
         for(i=0;i<sm.num_kernels;i++) {
-						if(init_spl_weight)
-						{
-							spl_weight_pos[i] += spl_factor;
-							spl_weight_neg[i] += spl_factor;
-							spl_weight_pos[i] = (spl_weight_pos[i]>1) ? 1 : spl_weight_pos[i];
-							spl_weight_neg[i] = (spl_weight_neg[i]>1) ? 1:spl_weight_neg[i];
-						}
+            if(init_spl_weight)
+            {
+                spl_weight_pos[i] += spl_factor;
+                spl_weight_neg[i] += spl_factor;
+                spl_weight_pos[i] = (spl_weight_pos[i]>1) ? 1 : spl_weight_pos[i];
+                spl_weight_neg[i] = (spl_weight_neg[i]>1) ? 1:spl_weight_neg[i];
+            }
         }
   } // end outer loop
-	fclose(fexamples);
-	fclose(ftime);
-	fclose(flatent);
+  fclose(fexamples);
+  fclose(ftime);
+  fclose(flatent);
   
 
   /* write structural model */

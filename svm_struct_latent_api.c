@@ -26,8 +26,8 @@
 
 #define MAX_INPUT_LINE_LENGTH 10000
 #define DELTA 1
-#define BASE_DIR "/afs/cs.stanford.edu/u/rwitten/scratch/mkl_features/"
-//#define BASE_DIR "/Users/rafiwitten/scratch/mkl_features/"
+//#define BASE_DIR "/afs/cs.stanford.edu/u/rwitten/scratch/mkl_features/"
+#define BASE_DIR "/Users/rafiwitten/scratch/mkl_features/"
 #define CONST_FILENAME_PART "_spquantized_1000_"
 #define CONST_FILENAME_SUFFIX ".mat"
 #define NUM_BBOXES_PER_IMAGE 800
@@ -929,7 +929,6 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 
 		gettimeofday(&end_time, NULL);
 		double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
-		printf("ESS took %f \n", microseconds/1000);
 //		printf("ESS got score %f and we got score %f\n", ourbox.score, ourscore-sm->w[1]);
 //		assert((ourscore - sm->w[1] - ourbox.score < 1e-4)&&((-ourscore +sm->w[1])+ ourbox.score < 1e-4));
 		/*if(!( (ourscore - sm->w[1] - ourbox.score < 1e-5)&&(ourscore -sm->w[1]- ourbox.score > -1e-5)))
@@ -1204,8 +1203,9 @@ void parse_struct_parameters(STRUCT_LEARN_PARM *sparm) {
     case 's': i++; sparm->rng_seed = atoi(sparm->custom_argv[i]); break;
     case 'n': i++; sparm->n_classes = atoi(sparm->custom_argv[i]); break;
     case 't': i++; sparm->margin_type = atoi(sparm->custom_argv[i]); break;
-		case 'l': i++; sparm->do_spm = atoi(sparm->custom_argv[i]); break;
-		case 'h': i++; sparm->do_hallucinate = atoi(sparm->custom_argv[i]); break;
+    case 'l': i++; sparm->do_spm = atoi(sparm->custom_argv[i]); break;
+    case 'h': i++; sparm->do_hallucinate = atoi(sparm->custom_argv[i]); break;
+    case 'p': i++; sparm->prox_weight = atoi(sparm->custom_argv[i]); break;
     default: printf("\nUnrecognized option %s!\n\n", sparm->custom_argv[i]); exit(0);
     }
   }
