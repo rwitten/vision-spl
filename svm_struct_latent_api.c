@@ -26,11 +26,12 @@
 
 #define MAX_INPUT_LINE_LENGTH 10000
 #define DELTA 1
-//#define BASE_DIR "/afs/cs.stanford.edu/u/rwitten/scratch/mkl_features/"
-#define BASE_DIR "/Users/rafiwitten/scratch/mkl_features/"
+#define BASE_DIR "/afs/cs.stanford.edu/u/rwitten/scratch/mkl_features/"
+//#define BASE_DIR "/Users/rafiwitten/scratch/mkl_features/"
 #define CONST_FILENAME_PART "_spquantized_1000_"
 #define CONST_FILENAME_SUFFIX ".mat"
 #define NUM_BBOXES_PER_IMAGE 800
+#define W_SCALE 1e4
 
 #define BASE_HEIGHT 75
 #define BASE_WIDTH 125
@@ -240,8 +241,8 @@ void init_latent_variables(SAMPLE *sample, LEARN_PARM *lparm, STRUCTMODEL *sm, S
 		LATENT_BOX random;
 		random.position_x_pixel = 1;//(long) floor(genrand_res53()*(sample->examples[i].x.width_pixel-10));
 		random.position_y_pixel = 1;//(long) floor(genrand_res53()*(sample->examples[i].x.height_pixel-10));
-		random.bbox_width_pixel = sample->examples[i].x.width_pixel;//(long) floor(genrand_res53()*(sample->examples[i].x.width_pixel-random.position_x_pixel-5));
-		random.bbox_height_pixel = sample->examples[i].x.height_pixel;//(long) floor(genrand_res53()*(sample->examples[i].x.height_pixel-random.position_y_pixel-5));
+		random.bbox_width_pixel = sample->examples[i].x.width_pixel-1;//(long) floor(genrand_res53()*(sample->examples[i].x.width_pixel-random.position_x_pixel-5));
+		random.bbox_height_pixel = sample->examples[i].x.height_pixel-1;//(long) floor(genrand_res53()*(sample->examples[i].x.height_pixel-random.position_y_pixel-5));
 		
 		for(int j = 0; j < sm->num_kernels; j++)
 		{
@@ -482,8 +483,8 @@ int min(int a, int b) {
 }
 
 void fill_max_pool(PATTERN x, LATENT_VAR h, int kernel_ind, IMAGE_KERNEL_CACHE ** cached_images, WORD* words, int descriptor_offset, int * num_words, STRUCTMODEL * sm) {
-		POINT_AND_DESCRIPTOR * points_and_descriptors = cached_images[x.example_id][kernel_ind].points_and_descriptors;
-		int num_descriptors = cached_images[x.example_id][kernel_ind].num_points;
+    POINT_AND_DESCRIPTOR * points_and_descriptors = cached_images[x.example_id][kernel_ind].points_and_descriptors;
+	int num_descriptors = cached_images[x.example_id][kernel_ind].num_points;
 	
     do_max_pooling(points_and_descriptors, h.boxes[kernel_ind], num_descriptors, kernel_ind, words, descriptor_offset, num_words, sm); 
 }
@@ -517,16 +518,16 @@ void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, LATENT_BOX ou
 																															 //so the smallest wnum is 2, which is correct since
 																															 //the 0th guy is blank and the first guy is 1.
 				assert(words[*num_words].wnum!=0);
-				words[*num_words].weight = 1.0;
+				words[*num_words].weight = (1.0 / W_SCALE);
 				score += sm->w[words[*num_words].wnum];
 				*num_words=*num_words+1;
 			}
 			else
 			{
-				assert(words[locations[position-1]].weight>=1.0);
+				assert(words[locations[position-1]].weight>0);
 				assert(words[locations[position-1]].wnum != 0);
 				score += sm->w[words[locations[position-1]].wnum];
-				words[locations[position-1]].weight += 1.0;
+				words[locations[position-1]].weight += 1.0/W_SCALE;
 			}
 		}
   }
@@ -928,7 +929,7 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		}
 
 		gettimeofday(&end_time, NULL);
-		double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
+		//double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
 //		printf("ESS got score %f and we got score %f\n", ourbox.score, ourscore-sm->w[1]);
 //		assert((ourscore - sm->w[1] - ourbox.score < 1e-4)&&((-ourscore +sm->w[1])+ ourbox.score < 1e-4));
 		/*if(!( (ourscore - sm->w[1] - ourbox.score < 1e-5)&&(ourscore -sm->w[1]- ourbox.score > -1e-5)))

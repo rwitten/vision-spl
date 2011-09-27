@@ -32,13 +32,13 @@
 
 
 #define ITERS_TO_UPDATE_LOWER_BOUND 10
-#define ALPHA_THRESHOLD 1E-8
+#define ALPHA_THRESHOLD 1E-14
 #define IDLE_ITER 25
 #define CLEANUP_CHECK 50
 #define STOP_PREC 1E-2
 #define UPDATE_BOUND 3
 #define MAX_CURRICULUM_ITER 10
-#define NUM_THREADS 0
+#define NUM_THREADS 12
 #define MAX_OUTER_ITER 20
 #define SSG_PRINT_ITERS 100
 
@@ -649,39 +649,6 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
   double* w_best = (double*)calloc(sm->sizePsi + 2, sizeof(double));
   memcpy(w_last, w, (sm->sizePsi + 2) * sizeof(double));
 
-  /* set parameters for hideo solver */
-  LEARN_PARM lparm;
-  KERNEL_PARM kparm;
-  MODEL *svm_model=NULL;
-  lparm.biased_hyperplane = 0;
-  lparm.epsilon_crit = MIN(epsilon,0.001);
-  lparm.svm_c = C;
-  lparm.sharedslack = 1;
-  kparm.kernel_type = LINEAR;
-
-  lparm.remove_inconsistent=0;
-  lparm.skip_final_opt_check=0;
-  lparm.svm_maxqpsize=10;
-  lparm.svm_newvarsinqp=0;
-  lparm.svm_iter_to_shrink=-9999;
-  lparm.maxiter=100000;
-  lparm.kernel_cache_size=40;
-  lparm.eps = MIN(.00001,epsilon); 
-  lparm.transduction_posratio=-1.0;
-  lparm.svm_costratio=1.0;
-  lparm.svm_costratio_unlab=1.0;
-  lparm.svm_unlabbound=1E-5;
-  lparm.epsilon_a=1E-10;  /* changed from 1e-15 */
-  lparm.compute_loo=0;
-  lparm.rho=1.0;
-  lparm.xa_depth=0;
-  strcpy(lparm.alphafile,"");
-  kparm.poly_degree=3;
-  kparm.rbf_gamma=1.0;
-  kparm.coef_lin=1;
-  kparm.coef_const=1;
-  strcpy(kparm.custom,"empty");
- 
   iter = 0;
   size_active = 0;
   alpha = NULL;
@@ -690,6 +657,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
   delta = NULL;
 	delta_plus_A_wlast = NULL;
 
+  double gram_diag = 1e-6;
   printf("Running structural SVM solver: "); fflush(stdout); 
   
   struct timeval start_time;
@@ -758,13 +726,33 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 		}
 		G[size_active-1][size_active-1] = sprod_ss(dXc[size_active-1]->fvec,dXc[size_active-1]->fvec);
 		/* hack: add a constant to the diagonal to make sure G is PSD */
-		G[size_active-1][size_active-1] += 1e-6;
+		G[size_active-1][size_active-1] += gram_diag;
+        printf("Diagonal entry is %f\n",G[size_active-1][size_active-1]); 
 
    	/* solve QP to update alpha */
 		struct timeval qp_start_time;
 		struct timeval qp_finish_time;
 		gettimeofday(&qp_start_time, NULL);
-        r = mosek_qp_optimize(G, delta_plus_A_wlast, alpha, (long) size_active, C / (1.0 + 2.0 * sparm->prox_weight), &cur_obj); // regularized solve
+        int no_solution = 1;
+        while(no_solution)
+        {
+           r = mosek_qp_optimize(G, delta_plus_A_wlast, alpha, (long) size_active, C / (1.0 + 2.0 * sparm->prox_weight), &cur_obj); // regularized solve
+           if(r >= 1293 && r <= 1296) //numerical issues
+           {
+               double new_gram_diag = 10*gram_diag;
+               for(j = 0 ; j < size_active; j++)
+               {
+                G[j][j] += new_gram_diag - gram_diag;
+               }
+               printf("*Gram weight went from %f to %f\n", gram_diag, new_gram_diag);
+               gram_diag = new_gram_diag;
+               
+           }
+           else
+           {
+                no_solution=0;
+           }
+        }
 		gettimeofday(&qp_finish_time, NULL);
 		microseconds = 1e6 * (qp_finish_time.tv_sec - qp_start_time.tv_sec) + (qp_finish_time.tv_usec - qp_start_time.tv_usec);
 		printf("Solving QP took %f\n", (double)microseconds/1000.0);
@@ -839,7 +827,26 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
         if( (iter % ITERS_TO_UPDATE_LOWER_BOUND) == 0)
         {
             double lb1;
-            r = mosek_qp_optimize(G, delta, alpha_lb, (long) size_active, C, &lb1); // unregularized solve
+            int no_solution = 1;
+            while(no_solution)
+            {
+               r = mosek_qp_optimize(G, delta, alpha_lb, (long) size_active, C, &lb1); // unregularized solve
+               if(r >= 1293 && r <= 1296) //numerical issues
+               {
+                   double new_gram_diag = 10*gram_diag;
+                   for(j = 0 ; j < size_active; j++)
+                   {
+                    G[j][j] += new_gram_diag - gram_diag;
+                   }
+                   printf("*Gram weight went from %f to %f\n", gram_diag, new_gram_diag);
+                   gram_diag = new_gram_diag;
+                   
+               }
+               else
+               {
+                    no_solution=0;
+               }
+            }
             if(r >= 1293 && r <= 1296)
             {
                 printf("r:%d. G might not be psd due to numerical errors.\n",r);
@@ -874,13 +881,13 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
                 if(slack>max_slack)
                     max_slack = slack;
             }
+            
 
-            double lb = C*max_slack;
+            double lb = MAX(0,C*max_slack);
             for(i = 0 ; i < sm->sizePsi+2 ; i ++)
                 lb += .5* w_temp[i]*w_temp[i];
-            //printf("New lower bound is %f\n", lb);
             if(lb > LOWER_BOUND) // THIS EXACT SOLUTION OF PARTIAL QP PROVIDES A LOWER BOUND 
-                                //(SINCE IT HAS FEWER CONSTRAINTS THAN THE TRUE PROBLEM
+                                //(SINCE IT HAS A SUBSET OF THE CONSTRAINTS OF THE TRUE PROBLEM)
             {
                 LOWER_BOUND=lb;
             }
@@ -891,9 +898,9 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 			printf("+"); fflush(stdout);
 			size_active = resize_cleanup(size_active, &idle, &alpha, &alpha_lb,&delta, &delta_plus_A_wlast, &dXc, &G, &mv_iter);
 		}
-		printf("We need to get %f less than %f on iter %d\n", UPPER_BOUND, LOWER_BOUND+C*epsilon, iter);
+		printf("We have ub %f and lb %f on iter %d\n", UPPER_BOUND, LOWER_BOUND, iter);
 	    memcpy(w_last, w, (sm->sizePsi + 2) * sizeof(double));
-        assert(UPPER_BOUND + epsilon>LOWER_BOUND);
+  //      assert(UPPER_BOUND + epsilon>LOWER_BOUND);
  	} // end cutting plane while loop 
 
 	primal_obj = current_obj_val(ex, fycache, m, cached_images, sm, sparm, C, valid_examples, valid_example_kernels);
@@ -918,7 +925,6 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
   free_svector(new_constraint);
   free(cur_slack);
   free(idle);
-  if (svm_model!=NULL) free_model(svm_model,0);
 
   return(primal_obj);
 }
@@ -1196,7 +1202,7 @@ int main(int argc, char* argv[]) {
   /* read input parameters */
   my_read_input_parameters(argc, argv, trainfile, modelfile, examplesfile, timefile, latentfile, &learn_parm, &kernel_parm, &sm, &sparm, &init_spl_weight, &spl_factor);
 
-  epsilon = learn_parm.eps*10;
+  epsilon = learn_parm.eps;
   C = learn_parm.svm_c;
   MAX_ITER = learn_parm.maxiter;
 
@@ -1231,8 +1237,7 @@ int main(int argc, char* argv[]) {
   printf("m = %ld\n", m);
   printf("C: %.8g\n", C);
   printf("spl weight: %.8g\n",init_spl_weight);
-  printf("epsilon orig: %.8g\n", epsilon);
-  printf("epsilon target: %.8g\n",learn_parm.eps );
+  printf("epsilon: %.8g\n", epsilon);
   printf("sample.n: %d\n", sample.n); 
   printf("sm.sizePsi: %ld\n", sm.sizePsi); fflush(stdout);
   
@@ -1285,7 +1290,7 @@ int main(int argc, char* argv[]) {
 		int initIter;
 		for (initIter=0;initIter<2;initIter++) { // Rafi: Initial iterations here
 		  if(!sparm.optimizer_type) {
-		    primal_obj = cutting_plane_algorithm(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples, valid_example_kernels); // here we use the original epsilon (which is very lenient)
+		    primal_obj = cutting_plane_algorithm(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples, valid_example_kernels); 
 		  } else {
 			primal_obj = stochastic_subgradient_descent(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples,valid_example_kernels);
 		  }
@@ -1337,7 +1342,7 @@ int main(int argc, char* argv[]) {
     free(temp_w); 
 
     //this is the outer loop.   
-    while ((outer_iter<2)||((!stop_crit)&&(outer_iter<MAX_OUTER_ITER))) { 
+    while ((outer_iter<4)||((!stop_crit)&&(outer_iter<MAX_OUTER_ITER))) { 
         if(!outer_iter && init_spl_weight) {
             int * valid_kernels = (int*)calloc(sm.num_kernels, sizeof(int));
             if (sparm.multi_kernel_spl) {
@@ -1421,12 +1426,6 @@ int main(int argc, char* argv[]) {
             stop_crit = 0;
         }
 
-        if(epsilon>learn_parm.eps)
-        {
-            printf("NOT STOPPING BECAUSE OF EPSILON\n");
-            epsilon = MAX(learn_parm.eps, epsilon/3);
-            stop_crit = 0;
-        }
         /* re-compute feature vector cache */
         for (i=0;i<m;i++) {
           free_svector(fycache[i]);
@@ -1498,7 +1497,7 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
   learn_parm->maxiter=20000;
   learn_parm->svm_maxqpsize=100;
   learn_parm->svm_c=100.0;
-  learn_parm->eps=0.01;
+  learn_parm->eps=-1;
   learn_parm->biased_hyperplane=12345; /* store random seed */
   learn_parm->remove_inconsistent=10; 
   kernel_parm->kernel_type=0;
@@ -1538,7 +1537,7 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
     }
   }
   assert(*init_spl_weight > 0.0 || !struct_parm->multi_kernel_spl);
-
+  assert(learn_parm->eps != -1);
   *init_spl_weight = (*init_spl_weight)/learn_parm->svm_c;
 
   if(i>=argc) {

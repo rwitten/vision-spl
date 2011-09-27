@@ -149,7 +149,7 @@ int mosek_qp_optimize(double** G, double* delta, double* alpha, long k, double C
 
       /* set relative tolerance gap (DEFAULT = 1E-8)*/
       //MSK_putdouparam(task, MSK_DPAR_INTPNT_TOL_REL_GAP, 1E-10);
-      MSK_putdouparam(task, MSK_DPAR_INTPNT_TOL_REL_GAP, 1E-9);
+      MSK_putdouparam(task, MSK_DPAR_INTPNT_TOL_REL_GAP, 1E-14);
 
       if (r==MSK_RES_OK) {
 	r = MSK_optimize(task);
