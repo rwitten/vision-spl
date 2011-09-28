@@ -657,7 +657,9 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
   delta = NULL;
 	delta_plus_A_wlast = NULL;
 
-  double gram_diag = 1e-6;
+  double gram_diag_regularized_solve = 1e-8;
+  double gram_diag_unregularized_solve = 1e-8;
+
   printf("Running structural SVM solver: "); fflush(stdout); 
   
   struct timeval start_time;
@@ -725,9 +727,6 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 			G[j][size_active-1]  = G[size_active-1][j];
 		}
 		G[size_active-1][size_active-1] = sprod_ss(dXc[size_active-1]->fvec,dXc[size_active-1]->fvec);
-		/* hack: add a constant to the diagonal to make sure G is PSD */
-		G[size_active-1][size_active-1] += gram_diag;
-        printf("Diagonal entry is %f\n",G[size_active-1][size_active-1]); 
 
    	/* solve QP to update alpha */
 		struct timeval qp_start_time;
@@ -736,33 +735,36 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
         int no_solution = 1;
         while(no_solution)
         {
+           for(j = 0 ; j < size_active; j++)
+           {
+             G[j][j] += gram_diag_regularized_solve;
+           }
            r = mosek_qp_optimize(G, delta_plus_A_wlast, alpha, (long) size_active, C / (1.0 + 2.0 * sparm->prox_weight), &cur_obj); // regularized solve
            if(r >= 1293 && r <= 1296) //numerical issues
            {
-               double new_gram_diag = 10*gram_diag;
+               double new_gram_diag = 10*gram_diag_regularized_solve;
                for(j = 0 ; j < size_active; j++)
                {
-                G[j][j] += new_gram_diag - gram_diag;
+                 G[j][j] += new_gram_diag - gram_diag_regularized_solve;
                }
-               printf("*Gram weight went from %f to %f\n", gram_diag, new_gram_diag);
-               gram_diag = new_gram_diag;
+               printf("*Gram weight (regularized) went from %f to %f\n", gram_diag_regularized_solve, new_gram_diag);
+               gram_diag_regularized_solve = new_gram_diag;
                
            }
            else
            {
                 no_solution=0;
            }
+           for(j = 0 ; j < size_active; j++)
+           {
+             G[j][j] -= gram_diag_regularized_solve;
+           }
         }
 		gettimeofday(&qp_finish_time, NULL);
 		microseconds = 1e6 * (qp_finish_time.tv_sec - qp_start_time.tv_sec) + (qp_finish_time.tv_usec - qp_start_time.tv_usec);
 		printf("Solving QP took %f\n", (double)microseconds/1000.0);
     
-        if(r >= 1293 && r <= 1296)
-        {
-            printf("r:%d. G might not be psd due to numerical errors.\n",r);
-            exit(1);
-        }
-        else if(r)
+        if(r)
         {
             printf("Error %d in mosek_qp_optimize: Check ${MOSEKHOME}/${VERSION}/tools/platform/${PLATFORM}/h/mosek.h\n",r);
             exit(1);
@@ -826,33 +828,36 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 
         if( (iter % ITERS_TO_UPDATE_LOWER_BOUND) == 0)
         {
-            double lb1;
+                        double lb1;
             int no_solution = 1;
             while(no_solution)
             {
+                for(j = 0 ; j < size_active; j++)
+                {
+                  G[j][j] += gram_diag_unregularized_solve;
+                }   
                r = mosek_qp_optimize(G, delta, alpha_lb, (long) size_active, C, &lb1); // unregularized solve
                if(r >= 1293 && r <= 1296) //numerical issues
                {
-                   double new_gram_diag = 10*gram_diag;
+                   double new_gram_diag = 10*gram_diag_unregularized_solve;
                    for(j = 0 ; j < size_active; j++)
                    {
-                    G[j][j] += new_gram_diag - gram_diag;
+                    G[j][j] += new_gram_diag - gram_diag_unregularized_solve;
                    }
-                   printf("*Gram weight went from %f to %f\n", gram_diag, new_gram_diag);
-                   gram_diag = new_gram_diag;
+                   printf("*Gram weight (unregularized) went from %f to %f\n", gram_diag_unregularized_solve, new_gram_diag);
+                   gram_diag_unregularized_solve = new_gram_diag;
                    
                }
                else
                {
-                    no_solution=0;
+                no_solution=0;
                }
+               for(j = 0 ; j < size_active; j++)
+                {
+                    G[j][j] -= gram_diag_unregularized_solve;
+                }   
             }
-            if(r >= 1293 && r <= 1296)
-            {
-                printf("r:%d. G might not be psd due to numerical errors.\n",r);
-                exit(1);
-            }
-            else if(r)
+            if(r)
             {
                 printf("Error %d in mosek_qp_optimize: Check ${MOSEKHOME}/${VERSION}/tools/platform/${PLATFORM}/h/mosek.h\n",r);
                 exit(1);
@@ -1206,7 +1211,7 @@ int main(int argc, char* argv[]) {
   C = learn_parm.svm_c;
   MAX_ITER = learn_parm.maxiter;
 
-  init_struct_model(get_sample_size(trainfile), (char*)KERNEL_INFO_FILE, &sm);
+  init_struct_model(get_sample_size(trainfile), (sm.kernel_info_file), &sm);
 
 
   /* read in examples */
@@ -1300,12 +1305,12 @@ int main(int argc, char* argv[]) {
           free_latent_var(h_temp);
    		}
 	    for (i=0;i<m;i++) {
-  	    free_svector(fycache[i]);
-	    fy = psi(ex[i].x, ex[i].y, ex[i].h, cached_images, all_ones, &sm, &sparm);
-     	 diff = add_list_ss(fy);
-     	 free_svector(fy);
-     	 fy = diff;
-     	 fycache[i] = fy;
+            free_svector(fycache[i]);
+            fy = psi(ex[i].x, ex[i].y, ex[i].h, cached_images, all_ones, &sm, &sparm);
+             diff = add_list_ss(fy);
+             free_svector(fy);
+             fy = diff;
+             fycache[i] = fy;
     	}
 		}
 	}
@@ -1548,20 +1553,21 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
 
   strcpy (trainfile, argv[i]);
 
-  if((i+1)<argc) {
-    strcpy (modelfile, argv[i+1]);
-  }
-	else {
-		strcpy (modelfile, "lssvm.model");
-	}
-
-	if((i+2)<argc) {
-		strcpy (filestub, argv[i+2]);
+	if((i+1)<argc) {
+		strcpy (filestub, argv[i+1]);
 	}
 	else {
 		strcpy (filestub, "lssvm");
 	}
 
+    if((i+2)<argc) {
+		strcpy (sm->kernel_info_file, argv[i+2]);
+	}
+	else {
+		strcpy (sm->kernel_info_file, "garbage");
+	}
+
+    sprintf(modelfile, "%s.model", filestub);
 	sprintf(examplesfile,"%s.examples",filestub);
 	sprintf(timefile,"%s.time",filestub);
 	sprintf(latentfile,"%s.latent",filestub);

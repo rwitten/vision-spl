@@ -96,6 +96,11 @@ typedef struct structmodel {
   MODEL  *svm_model;  /* the learned SVM model */
   long   sizeSinglePsi; 
   long   sizePsi;     /* maximum number of weights in w */
+  char kernel_info_file[1024]; //where the config is at
+  
+  double* meta_w;
+  int* meta_kernel_sizes;
+
   /* other information that is needed for the stuctural model can be
      added here, e.g. the grammar rules for NLP parsing */
   long n;             /* number of examples */

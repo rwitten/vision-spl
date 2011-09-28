@@ -22,7 +22,7 @@ clean:
 	rm -f *.o
 	rm -f svm_bbox_learn svm_bbox_classify ess
 
-ess:    clean ess.cc quality_pyramid.cc quality_box.cc
+ess:    ess.cc quality_pyramid.cc quality_box.cc
 	#g++ -O3 -o ess ess.cc quality_pyramid.cc quality_box.cc 
 	#g++ -O3 -c -D__MAIN__ -o ess ess.cc quality_pyramid.cc quality_box.cc 
 	g++ $(ESSFLAGS) quality_pyramid.cc 

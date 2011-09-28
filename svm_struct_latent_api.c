@@ -26,8 +26,8 @@
 
 #define MAX_INPUT_LINE_LENGTH 10000
 #define DELTA 1
-#define BASE_DIR "/afs/cs.stanford.edu/u/rwitten/scratch/mkl_features/"
-//#define BASE_DIR "/Users/rafiwitten/scratch/mkl_features/"
+//#define BASE_DIR "/afs/cs.stanford.edu/u/rwitten/scratch/mkl_features/"
+#define BASE_DIR "/Users/rafiwitten/scratch/mkl_features/"
 #define CONST_FILENAME_PART "_spquantized_1000_"
 #define CONST_FILENAME_SUFFIX ".mat"
 #define NUM_BBOXES_PER_IMAGE 800
@@ -376,7 +376,6 @@ void fill_possible_object_cache(PATTERN x,int kernel_ind, IMAGE_KERNEL_CACHE* ik
 {
   char filename[1024];
   sprintf(filename, "%s/%s.txt",BASE_DIR,x.image_path);
-//  printf("Opening %s\n", filename);
   FILE* fp = fopen(filename,"r");
   assert(fp);
   ikc->object_boxes = (Box*) malloc(sizeof(Box)*NUM_BBOXES_PER_IMAGE); 
