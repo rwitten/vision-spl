@@ -97,18 +97,17 @@ typedef struct structmodel {
   long   sizeSinglePsi; 
   long   sizePsi;     /* maximum number of weights in w */
   char kernel_info_file[1024]; //where the config is at
-  
-  double* meta_w;
+ 
+  int is_meta;
+  double** meta_w;
   int* meta_kernel_sizes;
-
+  char filestub[1024];
   /* other information that is needed for the stuctural model can be
      added here, e.g. the grammar rules for NLP parsing */
   long n;             /* number of examples */
   int num_kernels;
   int * kernel_sizes;
   char ** kernel_names;
-  int * descriptor_spacing_xs;
-  int * descriptor_spacing_ys;
 } STRUCTMODEL;
 
 

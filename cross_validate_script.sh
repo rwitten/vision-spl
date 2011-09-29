@@ -55,9 +55,16 @@ do
                                     echo "cd $base_dir" >> $script_name
                                     echo $command_starttimestamp >> $script_name
  
-                                    for kernel in 1 2 3 4 5 6 
+                                    for kernel in 1 2 3 4 5 6 7
                                     do
                                         basename_kernel=`./name.sh ${algorithm} ${classfold} ${C} ${foldnum} ${randomness} ${h} ${l} ${prox_weight} ${epsilon} ${kernels[$kernel]}`
+                                        if [ -f ./output/${basename_kernel}.starttime ]; then
+                                            echo "skipping subguy " ${basename_kernel}
+                                        fi
+                                        command_kernel_starttimestamp="date > ./output/${basename_kernel}.starttime"
+                                        command_kernel_endtimestamp="date > ./output/${basename_kernel}.endtime" 
+    
+                                        echo $command_kernel_starttimestamp >> $script_name
                                         command_train="./svm_bbox_learn --s $randomness -c ${C} -o 0 --n 2 ${commands[$algorithm]} ./data/train.${fold}.txt ./output/${basename_kernel} ./data/${kernels[$kernel]}_info.txt > ./output/${basename_kernel}.train_output"
                                         command_test="./svm_bbox_classify --c $C --n 2 ${commands_test[$algorithm]} ./data/test.${fold}.txt ./output/${basename_kernel}.model ./output/${basename_kernel}.labels ./output/${basename_kernel}.latent.test  ./output/${basename_kernel}.test_guesses ./output/${basename_kernel} ./data/${kernels[$kernel]}_info.txt >./output/${basename_kernel}.test_classify_output"
 
@@ -65,6 +72,7 @@ do
                                         echo ${command_train} >> $script_name
                                         echo $command_test  >> $script_name
                                         echo $command_test_on_train  >> $script_name
+                                        echo $command_kernel_endtimestamp >> $script_name
                                     done
 
                                     echo $command_endtimestamp >> $script_name

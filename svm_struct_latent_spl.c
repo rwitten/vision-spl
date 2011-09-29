@@ -47,8 +47,6 @@
 
 #define DEBUG_LEVEL 0
 
-#define KERNEL_INFO_FILE "data/kernel_info.txt"
-
 int mosek_qp_optimize(double**, double*, double*, long, double, double*);
 
 void my_read_input_parameters(int argc, char* argv[], char *trainfile, char *modelfile, char *examplesfile, char *timefile, char *latentfile,LEARN_PARM *learn_parm, KERNEL_PARM *kernel_parm, STRUCTMODEL *sm, STRUCT_LEARN_PARM *struct_parm, double *init_spl_weight, double *spl_factor);
@@ -657,8 +655,8 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
   delta = NULL;
 	delta_plus_A_wlast = NULL;
 
-  double gram_diag_regularized_solve = 1e-8;
-  double gram_diag_unregularized_solve = 1e-8;
+  double gram_diag_regularized_solve = 1e-25;
+  double gram_diag_unregularized_solve = 1e-25;
 
   printf("Running structural SVM solver: "); fflush(stdout); 
   

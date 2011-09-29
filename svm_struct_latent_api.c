@@ -37,7 +37,7 @@
 #define BASE_WIDTH 125
 #define X_STEP 50
 #define Y_STEP 50
-#define NUM_WINDOWS 5
+#define NUM_WINDOWS 1
 #define SCALE_FACTOR 1.5
 
 int pad_cmp(const void * a, const void * b) {
@@ -184,29 +184,62 @@ int get_num_bbox_positions(int image_length, int bbox_length, int bbox_step_leng
   return (int)ceil((1.0 * image_length - 1.0 * bbox_length) / (1.0 * bbox_step_length));
 }
 
+void load_meta_kernel(STRUCTMODEL* sm, int kernel_num)
+{
+    sm->meta_w[kernel_num] = (double*) malloc( sizeof(double) * (sm->meta_kernel_sizes[kernel_num]+1));
+    char filename[1024];
+    sprintf(filename, "%s%s.model", sm->filestub, sm->kernel_names[kernel_num]);
+    int fnum;
+    double fweight;
+    FILE* modelfl = fopen(filename, "r");
+    while (!feof(modelfl)) {
+        fscanf(modelfl, "%d:%lf", &fnum, &fweight);
+        sm->w[fnum] = fweight;
+    }
+    fclose(modelfl);
+
+}
+
 //file format is "<number of kernels>\n<kernel 0 name>\n<kernel 0 size>\n<kernel 1 name>\n...."
 void read_kernel_info(char * kernel_info_file, STRUCTMODEL * sm) {
   int k;
   FILE * fp = fopen(kernel_info_file, "r");
-  fscanf(fp, "%d\n", &(sm->num_kernels));
-  sm->kernel_names = (char**)malloc(sm->num_kernels * sizeof(char*));
-  sm->kernel_sizes = (int*)calloc(sm->num_kernels, sizeof(int));
-  sm->descriptor_spacing_ys = (int*)calloc(sm->num_kernels, sizeof(int));
-  sm->descriptor_spacing_xs = (int*)calloc(sm->num_kernels, sizeof(int));
-  char cur_kernel_name[1024]; //if you need more than 1023 characters to name a kernel, you need help
-  for (k = 0; k < sm->num_kernels; ++k) {
-    assert(!feof(fp));
-    fscanf(fp, "%s\n", cur_kernel_name);
-    sm->kernel_names[k] = strdup(cur_kernel_name);
-    fscanf(fp, "%d\n", &(sm->kernel_sizes[k]));
-    fscanf(fp, "%d\n", &(sm->descriptor_spacing_ys[k]));
-    fscanf(fp, "%d\n", &(sm->descriptor_spacing_xs[k]));
+  int firstline;
+  fscanf(fp, "%d\n", &firstline);
+  if(firstline)
+  {
+      sm->is_meta = 0;
+      sm->num_kernels = firstline;
+      printf("analyzing this number of kernels %d\n", sm->num_kernels);
+      sm->kernel_names = (char**)malloc(sm->num_kernels * sizeof(char*));
+      sm->kernel_sizes = (int*)calloc(sm->num_kernels, sizeof(int));
+      char cur_kernel_name[1024]; //if you need more than 1023 characters to name a kernel, you need help
+      for (k = 0; k < sm->num_kernels; ++k) {
+        assert(!feof(fp));
+        fscanf(fp, "%s\n", cur_kernel_name);
+        sm->kernel_names[k] = strdup(cur_kernel_name);
+        fscanf(fp, "%d\n", &(sm->kernel_sizes[k]));
+      }
+  }
+  else
+  {
+    sm->is_meta = 1;
+    fscanf(fp, "%d\n", &(sm->num_kernels));
+    char cur_kernel_name[1024]; //if you need more than 1023 characters to name a kernel, you need help
+    for (k = 0; k < sm->num_kernels; ++k) {
+        assert(!feof(fp));
+        fscanf(fp, "%s\n", cur_kernel_name);
+        sm->kernel_names[k] = strdup(cur_kernel_name);
+        fscanf(fp, "%d\n", &(sm->meta_kernel_sizes[k]));
+        load_meta_kernel(sm, k);
+        sm->kernel_sizes[k]=1;
+    }
   }
   sm->sizeSinglePsi = 0;
   for (k = 0; k < sm->num_kernels; ++k) {
     sm->sizeSinglePsi += sm->kernel_sizes[k];
   }
-	sm->sizePsi = (NUM_WINDOWS*sm->sizeSinglePsi)+1;
+  sm->sizePsi = (NUM_WINDOWS*sm->sizeSinglePsi)+1;
 
 	//sizePsi + 1 is the size of w.  w[0] is 0 ( deliberately) because of indexing issues 
 	//with sparse vectors.  w[1] is a bias term - there should be no features that match it.
@@ -277,19 +310,6 @@ void init_latent_variables(SAMPLE *sample, LEARN_PARM *lparm, STRUCTMODEL *sm, S
 //  int bbox_end_y = bbox_start_y + sm->bbox_height;
 //  return (pixel_x >= bbox_start_x) && (pixel_y >= bbox_start_y) && (pixel_x < bbox_end_x) && (pixel_y < bbox_end_y);
 //}
-
-int bbox_coord_to_pixel_coord(int bbox_coord, int bbox_step) {
-  return bbox_coord * bbox_step;
-}
-
-int pixel_coord_to_descriptor_coord(int pixel_coord, int descriptor_tl_offset, int descriptor_spacing) {
-  double raw_descriptor_coord = ((double)pixel_coord - (double)descriptor_tl_offset) / ((double)descriptor_spacing);
-  if (raw_descriptor_coord < 0.0) {
-    return 0;
-  } else {
-    return (int)ceil(raw_descriptor_coord);
-  }
-}
 
 //if the contents of files are ever cached, this would be a good place to implement that cacheing
 FILE * open_kernelized_image_file(PATTERN x, int kernel_ind, STRUCTMODEL * sm) {
