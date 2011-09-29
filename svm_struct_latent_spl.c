@@ -147,16 +147,16 @@ double print_all_scores(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CAC
   }
 
   /* compact the linear representation */
-  new_constraint = add_list_nn(lhs, sm->sizePsi+1);
+  new_constraint = add_list_nn(lhs, sm->sizePsi);
   free_svector(lhs);
 
 	obj = margin;
-	for(i = 1; i < sm->sizePsi+2; i++)
+	for(i = 1; i < sm->sizePsi+1; i++)
 		obj -= new_constraint[i]*sm->w[i];
 	if(obj < 0.0)
 		obj = 0.0;
 	obj *= C;
-	for(i = 1; i < sm->sizePsi+2; i++)
+	for(i = 1; i < sm->sizePsi+1; i++)
 		obj += 0.5*sm->w[i]*sm->w[i];
   free(new_constraint);
 
@@ -204,16 +204,16 @@ double current_obj_val(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CACH
   }
 
   /* compact the linear representation */
-  new_constraint = add_list_nn(lhs, sm->sizePsi+1);
+  new_constraint = add_list_nn(lhs, sm->sizePsi);
   free_svector(lhs);
 	free_latent_var(hbar);
 	obj = margin;
-	for(i = 1; i < sm->sizePsi+2; i++)
+	for(i = 1; i < sm->sizePsi+1; i++)
 		obj -= new_constraint[i]*sm->w[i];
 	if(obj < 0.0)
 		obj = 0.0;
 	obj *= C;
-	for(i = 1; i < sm->sizePsi+2; i++)
+	for(i = 1; i < sm->sizePsi+1; i++)
 		obj += 0.5*sm->w[i]*sm->w[i];
   free(new_constraint);
 
@@ -472,17 +472,17 @@ SVECTOR* find_cutting_plane(EXAMPLE *ex, SVECTOR **fycache, double *margin, long
 	free_latent_var(hbar_list[i]);
   free(hbar_list);
   /* compact the linear representation */
-  new_constraint = add_list_nn(lhs, sm->sizePsi+1);
+  new_constraint = add_list_nn(lhs, sm->sizePsi);
   free_svector(lhs);
 
   l=0;
-  for (i=1;i<sm->sizePsi+2;i++) {
+  for (i=1;i<sm->sizePsi+1;i++) {
     if (fabs(new_constraint[i])>1E-10) l++; // non-zero
   }
   words = (WORD*)my_malloc(sizeof(WORD)*(l+1)); 
   assert(words!=NULL);
   k=0;
-  for (i=1;i<sm->sizePsi+2;i++) {
+  for (i=1;i<sm->sizePsi+1;i++) {
     if (fabs(new_constraint[i])>1E-10) {
       words[k].wnum = i;
       words[k].weight = new_constraint[i]; 
@@ -505,12 +505,12 @@ void project_weights(double *w, int sizePsi, double C)
 	double norm_squared = 0.0;
 	double projection_factor = 1.0;
 	int i;
-	for(i=0;i<sizePsi+2;i++)
+	for(i=0;i<sizePsi+1;i++)
 		norm_squared += w[i]*w[i];
 	if(.5 * norm_squared > C)
 	{
 		projection_factor = sqrt((2*C)/(norm_squared));
-		for(i=0;i<=sizePsi+2;i++)
+		for(i=0;i<=sizePsi+1;i++)
 			w[i] = w[i]*projection_factor;
 	}
 //    norm_squared = 0.0;
@@ -566,7 +566,7 @@ double stochastic_subgradient_descent(double *w, long m, int MAX_ITER, double C,
   srand(time(NULL));
   double best_obj=C; //since zero gets C
   double lambda = 1/(m*C);
-  double* grad = (double*) malloc(sizeof(double)*(2+sm->sizePsi));
+  double* grad = (double*) malloc(sizeof(double)*(1+sm->sizePsi));
   printf("the relation is lambda %f m %ld and C %f\n", lambda, m, C);
   int* temp_valid_examples = (int*) malloc(sizeof(int)*m);
 //	clear_nvector(w,sm->sizePsi);
@@ -584,7 +584,7 @@ double stochastic_subgradient_descent(double *w, long m, int MAX_ITER, double C,
         else
             new_constraint = find_cutting_plane(ex, fycache, &margin, m, cached_images, sm, sparm, valid_examples,valid_example_kernels);
 
-        for(int i = 0 ;  i < sm->sizePsi +2; i++)
+        for(int i = 0 ;  i < sm->sizePsi +1; i++)
             grad[i] = prox_reg * w[i];
 
         if(margin>0) 
@@ -596,7 +596,7 @@ double stochastic_subgradient_descent(double *w, long m, int MAX_ITER, double C,
             double objval = C*(margin - sprod_ns(w, new_constraint));
             if(objval<0)
                 objval=0;
-            for( int i = 0 ; i < sm->sizePsi+2 ; i ++)
+            for( int i = 0 ; i < sm->sizePsi+1 ; i ++)
                 objval += .5* w[i]*w[i];
 
             if(best_obj > objval)
@@ -606,7 +606,7 @@ double stochastic_subgradient_descent(double *w, long m, int MAX_ITER, double C,
             printf("new objective is %f with best %f on iter %d\n", objval, best_obj,iter );
         }
 
-        for (int i = 0 ; i < sm->sizePsi + 2; i++)
+        for (int i = 0 ; i < sm->sizePsi + 1; i++)
             w[i] = grad[i]/(1+prox_reg);
 
         project_weights(w, sm->sizePsi, best_obj);
@@ -643,9 +643,9 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 	SVECTOR *f;
 	int r;
 
-  double* w_last = (double*)calloc(sm->sizePsi + 2, sizeof(double));
-  double* w_best = (double*)calloc(sm->sizePsi + 2, sizeof(double));
-  memcpy(w_last, w, (sm->sizePsi + 2) * sizeof(double));
+  double* w_last = (double*)calloc(sm->sizePsi + 1, sizeof(double));
+  double* w_best = (double*)calloc(sm->sizePsi + 1, sizeof(double));
+  memcpy(w_last, w, (sm->sizePsi + 1) * sizeof(double));
 
   iter = 0;
   size_active = 0;
@@ -670,7 +670,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 
 	double UPPER_BOUND = DBL_MAX;
 	double LOWER_BOUND = 0;
-	double* w_temp = (double*) malloc(sizeof(double) *(sm->sizePsi+2));
+	double* w_temp = (double*) malloc(sizeof(double) *(sm->sizePsi+1));
 	while(((UPPER_BOUND-LOWER_BOUND>C*epsilon)&&(iter<MAX_ITER))) {
 		iter+=1;
 		size_active+=1;
@@ -768,7 +768,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
             exit(1);
         }
 
-        clear_nvector(w,sm->sizePsi+1);
+        clear_nvector(w,sm->sizePsi);
         for (j=0;j<size_active;j++) {
             if (alpha[j] > C * ALPHA_THRESHOLD / (1.0 + 2.0 * sparm->prox_weight)) {
                     add_vector_ns(w,dXc[j]->fvec,alpha[j]);
@@ -778,7 +778,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
                     idle[j]++;
         }
 
-		for (j = 0; j < sm->sizePsi +2; ++j) {
+		for (j = 0; j < sm->sizePsi +1; ++j) {
 			w[j] += ((2.0 * sparm->prox_weight) / (1.0 + 2.0 * sparm->prox_weight)) * w_last[j];
 		}
 							
@@ -815,13 +815,13 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
         if(threshold<0)
             threshold=0;
 
-		for( i = 0 ; i < sm->sizePsi+2 ; i ++)
+		for( i = 0 ; i < sm->sizePsi+1 ; i ++)
 			threshold += .5* w[i]*w[i];
 
 		if(threshold<UPPER_BOUND) //THIS IS THE BOUND WE GET BY EVALUATING CURRENT SOLUTION ON THE FULL QP
         {
 			UPPER_BOUND=threshold;
-            memcpy(w_best, w, sizeof(double)*(sm->sizePsi+2));
+            memcpy(w_best, w, sizeof(double)*(sm->sizePsi+1));
         }
 
         if( (iter % ITERS_TO_UPDATE_LOWER_BOUND) == 0)
@@ -860,7 +860,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
                 printf("Error %d in mosek_qp_optimize: Check ${MOSEKHOME}/${VERSION}/tools/platform/${PLATFORM}/h/mosek.h\n",r);
                 exit(1);
             }
-            clear_nvector(w_temp,sm->sizePsi+1);
+            clear_nvector(w_temp,sm->sizePsi);
             for (j=0;j<size_active;j++) {
                 if (alpha_lb[j] > C * ALPHA_THRESHOLD) {
                         add_vector_ns(w_temp,dXc[j]->fvec,alpha_lb[j]);
@@ -887,7 +887,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
             
 
             double lb = MAX(0,C*max_slack);
-            for(i = 0 ; i < sm->sizePsi+2 ; i ++)
+            for(i = 0 ; i < sm->sizePsi+1 ; i ++)
                 lb += .5* w_temp[i]*w_temp[i];
             if(lb > LOWER_BOUND) // THIS EXACT SOLUTION OF PARTIAL QP PROVIDES A LOWER BOUND 
                                 //(SINCE IT HAS A SUBSET OF THE CONSTRAINTS OF THE TRUE PROBLEM)
@@ -902,7 +902,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 			size_active = resize_cleanup(size_active, &idle, &alpha, &alpha_lb,&delta, &delta_plus_A_wlast, &dXc, &G, &mv_iter);
 		}
 		printf("We have ub %f and lb %f on iter %d\n", UPPER_BOUND, LOWER_BOUND, iter);
-	    memcpy(w_last, w, (sm->sizePsi + 2) * sizeof(double));
+	    memcpy(w_last, w, (sm->sizePsi + 1) * sizeof(double));
   //      assert(UPPER_BOUND + epsilon>LOWER_BOUND);
  	} // end cutting plane while loop 
 
@@ -915,7 +915,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 	free(G[j]);
     free_example(dXc[j],1);	
   }
-  memcpy(w,w_best, sizeof(double)*(sm->sizePsi+2));
+  memcpy(w,w_best, sizeof(double)*(sm->sizePsi+1));
 
   free(w_best);
   free(w_temp);
@@ -1232,8 +1232,8 @@ int main(int argc, char* argv[]) {
     IMAGE_KERNEL_CACHE ** cached_images = init_cached_images(ex,&sm);
     m = sample.n;
 
-    w = create_nvector(sm.sizePsi+1);
-    clear_nvector(w, sm.sizePsi+1);
+    w = create_nvector(sm.sizePsi);
+    clear_nvector(w, sm.sizePsi);
     sm.w = w; /* establish link to w, as long as w does not change pointer */
 
   /* some training information */
@@ -1335,8 +1335,8 @@ int main(int argc, char* argv[]) {
     //printing some stuff before doing outer loop
     primal_obj = current_obj_val(ex, fycache, m, cached_images, &sm, &sparm, C, allon_examples, allon_example_kernels);
     printf("primal objective (AFTER INITIALIZATION): %f\n", primal_obj);
-    double* temp_w = create_nvector(sm.sizePsi+1);
-    clear_nvector(temp_w, sm.sizePsi+1);
+    double* temp_w = create_nvector(sm.sizePsi);
+    clear_nvector(temp_w, sm.sizePsi);
     double* backup_w = sm.w;
     sm.w = temp_w;
     primal_obj = current_obj_val(ex, fycache, m, cached_images, &sm, &sparm, C, allon_examples, allon_example_kernels);
@@ -1562,7 +1562,13 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
 		strcpy (sm->kernel_info_file, argv[i+2]);
 	}
 	else {
-		strcpy (sm->kernel_info_file, "garbage");
+		strcpy (sm->kernel_info_file, "garbagewhichwillmakeyoucrash");
+	}
+    if((i+3)<argc) {
+		strcpy (sm->filestub, argv[i+3]);
+	}
+	else {
+		strcpy(sm->filestub, "garbagewhichwillmakeyoucrash");
 	}
 
     sprintf(modelfile, "%s.model", filestub);

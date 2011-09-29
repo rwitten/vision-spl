@@ -28,6 +28,7 @@ do
                                 for epsilon in .01 
                                 do
                                     basename=`./name.sh ${algorithm} ${classfold} ${C} ${foldnum} ${randomness} ${h} ${l} ${prox_weight} ${epsilon} overall`
+                                    filestub=`./name.sh ${algorithm} ${classfold} ${C} ${foldnum} ${randomness} ${h} ${l} ${prox_weight} ${epsilon}`
                                     num_neg=`cat data/train.${classfold}_1.txt | grep ' 0 ' | wc -l`
                                     num_pos=`cat data/train.${classfold}_1.txt | grep ' 1 ' | wc -l`
                                     j=`echo $num_neg $num_pos | awk '{print $1/$2;}'`	
@@ -65,7 +66,7 @@ do
                                         command_kernel_endtimestamp="date > ./output/${basename_kernel}.endtime" 
     
                                         echo $command_kernel_starttimestamp >> $script_name
-                                        command_train="./svm_bbox_learn --s $randomness -c ${C} -o 0 --n 2 ${commands[$algorithm]} ./data/train.${fold}.txt ./output/${basename_kernel} ./data/${kernels[$kernel]}_info.txt > ./output/${basename_kernel}.train_output"
+                                        command_train="./svm_bbox_learn --s $randomness -c ${C} -o 0 --n 2 ${commands[$algorithm]} ./data/train.${fold}.txt ./output/${basename_kernel} ./data/${kernels[$kernel]}_info.txt ${filestub} > ./output/${basename_kernel}.train_output"
                                         command_test="./svm_bbox_classify --c $C --n 2 ${commands_test[$algorithm]} ./data/test.${fold}.txt ./output/${basename_kernel}.model ./output/${basename_kernel}.labels ./output/${basename_kernel}.latent.test  ./output/${basename_kernel}.test_guesses ./output/${basename_kernel} ./data/${kernels[$kernel]}_info.txt >./output/${basename_kernel}.test_classify_output"
 
                                         command_test_on_train="./svm_bbox_classify --c $C --n 2 ${commands_test[$algorithm]} ./data/train.${fold}.txt ./output/${basename_kernel}.model ./output/${basename_kernel}.labels_train ./output/${basename_kernel}.score.train ./output/${basename_kernel}.train_guesses ./output/${basename_kernel} ./data/${kernels[$kernel]}_info.txt>./output/${basename}.train_classify_output"

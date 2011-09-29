@@ -194,10 +194,9 @@ void load_meta_kernel(STRUCTMODEL* sm, int kernel_num)
     FILE* modelfl = fopen(filename, "r");
     while (!feof(modelfl)) {
         fscanf(modelfl, "%d:%lf", &fnum, &fweight);
-        sm->w[fnum] = fweight;
+        sm->meta_w[kernel_num][fnum] = fweight;
     }
     fclose(modelfl);
-
 }
 
 //file format is "<number of kernels>\n<kernel 0 name>\n<kernel 0 size>\n<kernel 1 name>\n...."
@@ -241,7 +240,7 @@ void read_kernel_info(char * kernel_info_file, STRUCTMODEL * sm) {
   }
   sm->sizePsi = (NUM_WINDOWS*sm->sizeSinglePsi)+1;
 
-	//sizePsi + 1 is the size of w.  w[0] is 0 ( deliberately) because of indexing issues 
+	//sizePsi + 1 is the number of entries in w.  w[0] is 0 ( deliberately) because of indexing issues 
 	//with sparse vectors.  w[1] is a bias term - there should be no features that match it.
 }
 
@@ -518,12 +517,17 @@ void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, LATENT_BOX ou
 //	printf("Offset is %d\n", descriptor_offset);
 	int init_num_words = *num_words;
 	
-  int * locations = (int*)calloc(sm->kernel_sizes[kernel_ind], sizeof(int));
+    int * locations = (int*)calloc(sm->kernel_sizes[kernel_ind], sizeof(int));
 	LATENT_BOX h_temp = ourbox;
 //	printf("(DMP) bounding box is left %f top  %f width %f, height %f\n", h_temp.position_x_pixel, h_temp.position_y_pixel, h_temp.bbox_width_pixel, h_temp.bbox_height_pixel);
 	double score = 0;
-  for(int i = 0; i< num_descriptors;i++)
+    for(int i = 0; i< num_descriptors;i++)
 	{
+        if(sm->is_meta)
+        {
+            words[*num_words].weight = 0;
+            words[*num_words].wnum= kernel_ind+2;
+        }
 		POINT_AND_DESCRIPTOR descriptor = points_and_descriptors[i];
 		int position = descriptor.descriptor;
 		assert(position+descriptor_offset>1);
@@ -531,25 +535,36 @@ void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, LATENT_BOX ou
 		if( (descriptor.x>=ourbox.position_x_pixel) && (descriptor.x<=ourbox.position_x_pixel+ourbox.bbox_width_pixel) &&
 				(descriptor.y>=ourbox.position_y_pixel) && (descriptor.y<=ourbox.position_y_pixel+ourbox.bbox_height_pixel) )
 		{
-			if (locations[position-1] == 0) {
-				locations[position - 1] = (*num_words);
-				words[*num_words].wnum = position  +descriptor_offset; //position is one indexed, as is descriptor_offset,
-																															 //so the smallest wnum is 2, which is correct since
-																															 //the 0th guy is blank and the first guy is 1.
-				assert(words[*num_words].wnum!=0);
-				words[*num_words].weight = (1.0 / W_SCALE);
-				score += sm->w[words[*num_words].wnum];
-				*num_words=*num_words+1;
-			}
-			else
-			{
-				assert(words[locations[position-1]].weight>0);
-				assert(words[locations[position-1]].wnum != 0);
-				score += sm->w[words[locations[position-1]].wnum];
-				words[locations[position-1]].weight += 1.0/W_SCALE;
-			}
+			if(!sm->is_meta)
+            {
+                if (locations[position-1] == 0) {
+                    locations[position - 1] = (*num_words);
+                    words[*num_words].wnum = position  +descriptor_offset; //position is one indexed, as is descriptor_offset,
+                                                                           //so the smallest wnum is 2, which is correct since
+                                                                           //the 0th guy is blank and the first guy is 1.
+                    assert(words[*num_words].wnum!=0);
+                    words[*num_words].weight = (1.0 / W_SCALE);
+                    score += sm->w[words[*num_words].wnum];
+                    *num_words=*num_words+1;
+                }
+                else
+                {
+                    assert(words[locations[position-1]].weight>0);
+                    assert(words[locations[position-1]].wnum != 0);
+                    score += sm->w[words[locations[position-1]].wnum];
+                    words[locations[position-1]].weight += 1.0/W_SCALE;
+                }
+            }
+            else
+            {
+               words[*num_words].weight += (sm->meta_w[kernel_ind][position] / W_SCALE);
+            }
 		}
   }
+    if(sm->is_meta)
+    {
+        *num_words = *num_words + 1; 
+    }
 //	printf("Score is %f\n", score);
 	qsort(&(words[init_num_words]), *num_words - init_num_words, sizeof(WORD), word_cmp);
 	free(locations);
@@ -592,14 +607,14 @@ SVECTOR* single_psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cach
   //binary labelling for now - 1 means there's a car, 0 means there's no car
   if (y.label) {
     int num_words = 0;
-    WORD * words = (WORD *)calloc(sm->sizePsi + 2, sizeof(WORD)); 
-		if(cutoff==1) //if we're the first kernel
-		{
-			words[num_words].wnum = 1;
-			words[num_words].weight = 1.0;
-			num_words=num_words+1;
-		}
-		int k;
+    WORD * words = (WORD *)calloc(sm->sizePsi + 1, sizeof(WORD)); 
+    if(cutoff==1) //if we're the first kernel
+    {
+        words[num_words].wnum = 1;
+        words[num_words].weight = 1.0;
+        num_words=num_words+1;
+    }
+    int k;
     int start_ind = cutoff;
     for (k = 0; k < sm->num_kernels; ++k) {
       if ((!valid_kernels) || valid_kernels[k]) {
@@ -887,9 +902,21 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		double* argxpos = (double*)malloc(sizeof(double)*total_indices);
 		double* argypos = (double*)malloc(sizeof(double)*total_indices);
 		double* argclst = (double*)malloc(sizeof(double)*total_indices);
-		double* w = &sm->w[2];
+        double* w = (double*)malloc(sizeof(double)*(sm->sizePsi-1));
+        if(!sm->is_meta)
+        {
+		    memcpy(w, &sm->w[2], sm->sizePsi-1);
+        }
+        else
+        {
+           int curr_index = 0;
+           for(int i = 0 ; i < sm->num_kernels; i++)
+           {
+                memcpy(&w[curr_index], &(sm->meta_w[i][1]), sm->meta_kernel_sizes[i]);
+                curr_index+= sm->meta_kernel_sizes[i];
+           }
+        }
 	
-//		printf("Total indice %d\n", total_indices);
 		
 
 		int factor = 20;
@@ -923,9 +950,9 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 
 		LATENT_BOX h_temp;
 		h_temp.position_x_pixel=ourbox.left; /* starting position of object */
-    h_temp.position_y_pixel=ourbox.top;
-    h_temp.bbox_width_pixel=(ourbox.right-ourbox.left);
-    h_temp.bbox_height_pixel=(ourbox.bottom-ourbox.top);
+        h_temp.position_y_pixel=ourbox.top;
+        h_temp.bbox_width_pixel=(ourbox.right-ourbox.left);
+        h_temp.bbox_height_pixel=(ourbox.bottom-ourbox.top);
 
 		LATENT_VAR h_latent_var =  make_latent_var(sm);
 		for(int i =0; i< sm->num_kernels; i++)
@@ -964,6 +991,7 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		free(argxpos);
 		free(argypos);
 		free(argclst);
+        free(w);
 	}
 }
 
