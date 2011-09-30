@@ -101,6 +101,8 @@ typedef struct structmodel {
   int is_meta;
   double** meta_w;
   int* meta_kernel_sizes;
+  int sizeSingleMetaPsi;
+  int sizeMetaPsi;
   char filestub[1024];
   /* other information that is needed for the stuctural model can be
      added here, e.g. the grammar rules for NLP parsing */

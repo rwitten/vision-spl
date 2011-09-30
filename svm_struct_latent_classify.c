@@ -53,7 +53,6 @@ int main(int argc, char* argv[]) {
     char labelfile[1024];
     char latentfile[1024];
     char scorefile[1024];
-    char filestub[1024];
     FILE	*flabel;
     FILE	*flatent;
     FILE *fscore;
@@ -65,7 +64,7 @@ int main(int argc, char* argv[]) {
 
 
     /* read input parameters */
-    read_input_parameters(argc,argv,testfile,modelfile,labelfile,latentfile,scorefile,model.kernel_info_file,filestub, &sparm);
+    read_input_parameters(argc,argv,testfile,modelfile,labelfile,latentfile,scorefile,model.kernel_info_file,model.filestub, &sparm);
 
     printf("C: %f\n",sparm.C);
     flabel = fopen(labelfile,"w");
