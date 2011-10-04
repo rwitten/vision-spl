@@ -1,0 +1,12 @@
+0
+5
+hog
+1000
+sift
+1000
+colorSift
+1000
+rgbSift
+1000
+opponentSift
+1000

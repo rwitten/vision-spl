@@ -26,12 +26,12 @@
 
 #define MAX_INPUT_LINE_LENGTH 10000
 #define DELTA 1
-//#define BASE_DIR "/afs/cs.stanford.edu/u/rwitten/scratch/mkl_features/"
-#define BASE_DIR "/Users/rafiwitten/scratch/mkl_features/"
+#define BASE_DIR "/afs/cs.stanford.edu/u/rwitten/scratch/mkl_features/"
+//#define BASE_DIR "/Users/rafiwitten/scratch/mkl_features/"
 #define CONST_FILENAME_PART "_spquantized_1000_"
 #define CONST_FILENAME_SUFFIX ".mat"
 #define NUM_BBOXES_PER_IMAGE 800
-#define W_SCALE 1e4
+#define W_SCALE ((double)1e4)
 
 #define BASE_HEIGHT 75
 #define BASE_WIDTH 125
@@ -186,16 +186,23 @@ int get_num_bbox_positions(int image_length, int bbox_length, int bbox_step_leng
 
 void load_meta_kernel(STRUCTMODEL* sm, int kernel_num)
 {
-    sm->meta_w[kernel_num] = (double*) malloc( sizeof(double) * (sm->meta_kernel_sizes[kernel_num]+1));
+    sm->meta_w[kernel_num] = (double*) malloc( sizeof(double) * (sm->meta_kernel_sizes[kernel_num]));
     char filename[1024];
+    printf("by the time we get here filestub is %s\n", sm->filestub);
     sprintf(filename, "%s%s.model", sm->filestub, sm->kernel_names[kernel_num]);
     int fnum;
     double fweight;
     FILE* modelfl = fopen(filename, "r");
+    printf("opening filename %s\n", filename);
+    assert(modelfl);
+    int whatshouldbefnum=1;
     while (!feof(modelfl)) {
-        fscanf(modelfl, "%d:%lf", &fnum, &fweight);
-        sm->meta_w[kernel_num][fnum] = fweight;
+        fscanf(modelfl, "%d:%lf\n", &fnum, &fweight);
+        assert(whatshouldbefnum==fnum);
+        sm->meta_w[kernel_num][fnum-1] = fweight;
+        whatshouldbefnum++;
     }
+    assert(whatshouldbefnum==sm->meta_kernel_sizes[kernel_num]+1);
     fclose(modelfl);
 }
 
@@ -205,13 +212,13 @@ void read_kernel_info(char * kernel_info_file, STRUCTMODEL * sm) {
   FILE * fp = fopen(kernel_info_file, "r");
   int firstline;
   fscanf(fp, "%d\n", &firstline);
-  if(firstline)
+    if(firstline)
   {
       sm->is_meta = 0;
       sm->num_kernels = firstline;
-      printf("analyzing this number of kernels %d\n", sm->num_kernels);
       sm->kernel_names = (char**)malloc(sm->num_kernels * sizeof(char*));
       sm->kernel_sizes = (int*)calloc(sm->num_kernels, sizeof(int));
+    printf("analyzing this number of kernels %d\n", sm->num_kernels);
       char cur_kernel_name[1024]; //if you need more than 1023 characters to name a kernel, you need help
       for (k = 0; k < sm->num_kernels; ++k) {
         assert(!feof(fp));
@@ -224,21 +231,37 @@ void read_kernel_info(char * kernel_info_file, STRUCTMODEL * sm) {
   {
     sm->is_meta = 1;
     fscanf(fp, "%d\n", &(sm->num_kernels));
+    sm->kernel_names = (char**)malloc(sm->num_kernels * sizeof(char*));
+    sm->kernel_sizes = (int*)malloc(sm->num_kernels* sizeof(int));
+    sm->meta_kernel_sizes = (int*)malloc(sm->num_kernels* sizeof(int));
+    sm->meta_w = (double**) malloc(sm->num_kernels*sizeof(double*));
     char cur_kernel_name[1024]; //if you need more than 1023 characters to name a kernel, you need help
     for (k = 0; k < sm->num_kernels; ++k) {
         assert(!feof(fp));
         fscanf(fp, "%s\n", cur_kernel_name);
+        printf("Cur kernel name is %s\n", cur_kernel_name);
         sm->kernel_names[k] = strdup(cur_kernel_name);
+        assert(!feof(fp));
         fscanf(fp, "%d\n", &(sm->meta_kernel_sizes[k]));
+        sm->meta_kernel_sizes[k]++;  //since it also has zero component
         load_meta_kernel(sm, k);
         sm->kernel_sizes[k]=1;
     }
   }
-  sm->sizeSinglePsi = 0;
+
+  if(sm->is_meta)
+  {
+    sm->sizeSingleMetaPsi = 0;
+      for (k = 0; k < sm->num_kernels; ++k) {
+        sm->sizeSingleMetaPsi += sm->meta_kernel_sizes[k];
+      }
+      sm->sizeMetaPsi = (NUM_WINDOWS*sm->sizeSingleMetaPsi); //sizeMetaPsi is the number of coefficients that we have inherited.
+  }
+  sm->sizeSinglePsi = 1;
   for (k = 0; k < sm->num_kernels; ++k) {
     sm->sizeSinglePsi += sm->kernel_sizes[k];
   }
-  sm->sizePsi = (NUM_WINDOWS*sm->sizeSinglePsi)+1;
+  sm->sizePsi = (NUM_WINDOWS*sm->sizeSinglePsi);
 
 	//sizePsi + 1 is the number of entries in w.  w[0] is 0 ( deliberately) because of indexing issues 
 	//with sparse vectors.  w[1] is a bias term - there should be no features that match it.
@@ -520,22 +543,25 @@ void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, LATENT_BOX ou
     int * locations = (int*)calloc(sm->kernel_sizes[kernel_ind], sizeof(int));
 	LATENT_BOX h_temp = ourbox;
 //	printf("(DMP) bounding box is left %f top  %f width %f, height %f\n", h_temp.position_x_pixel, h_temp.position_y_pixel, h_temp.bbox_width_pixel, h_temp.bbox_height_pixel);
+    if(sm->is_meta)
+    {
+        words[*num_words].weight = 0;
+        words[*num_words].wnum= kernel_ind+2;
+    }
 	double score = 0;
+    int feasible_descriptors = 0;
     for(int i = 0; i< num_descriptors;i++)
 	{
-        if(sm->is_meta)
-        {
-            words[*num_words].weight = 0;
-            words[*num_words].wnum= kernel_ind+2;
-        }
 		POINT_AND_DESCRIPTOR descriptor = points_and_descriptors[i];
 		int position = descriptor.descriptor;
 		assert(position+descriptor_offset>1);
-		assert(position+descriptor_offset<sm->sizePsi+1);
+		if(!sm->is_meta)
+            assert(position+descriptor_offset<sm->sizePsi+1);
 		if( (descriptor.x>=ourbox.position_x_pixel) && (descriptor.x<=ourbox.position_x_pixel+ourbox.bbox_width_pixel) &&
 				(descriptor.y>=ourbox.position_y_pixel) && (descriptor.y<=ourbox.position_y_pixel+ourbox.bbox_height_pixel) )
 		{
-			if(!sm->is_meta)
+			feasible_descriptors++;
+            if(!sm->is_meta)
             {
                 if (locations[position-1] == 0) {
                     locations[position - 1] = (*num_words);
@@ -557,10 +583,14 @@ void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, LATENT_BOX ou
             }
             else
             {
+               assert(position>=0);
+               assert(position< sm->meta_kernel_sizes[kernel_ind]);
                words[*num_words].weight += (sm->meta_w[kernel_ind][position] / W_SCALE);
             }
 		}
   }
+//  printf("Number feasible descriptors %d %f \n", feasible_descriptors,words[*num_words].weight);
+// printf("this guy %d has new weight %f\n", *num_words, words[*num_words].weight);
     if(sm->is_meta)
     {
         *num_words = *num_words + 1; 
@@ -902,18 +932,30 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		double* argxpos = (double*)malloc(sizeof(double)*total_indices);
 		double* argypos = (double*)malloc(sizeof(double)*total_indices);
 		double* argclst = (double*)malloc(sizeof(double)*total_indices);
-        double* w = (double*)malloc(sizeof(double)*(sm->sizePsi-1));
+        int size_w = sm->is_meta ? (sm->sizeSingleMetaPsi-sm->num_kernels) : (sm->sizeSinglePsi-1);
+        double* w = (double*) malloc(sizeof(double)*size_w);
+
+   //     for(int i = 0 ; i< sm->sizePsi+1 ; i++)
+   //         sm->w[i]=1;
+
         if(!sm->is_meta)
         {
-		    memcpy(w, &sm->w[2], sm->sizePsi-1);
+		    memcpy(w, &sm->w[2], sizeof(double)*(size_w));
         }
         else
         {
            int curr_index = 0;
            for(int i = 0 ; i < sm->num_kernels; i++)
            {
-                memcpy(&w[curr_index], &(sm->meta_w[i][1]), sm->meta_kernel_sizes[i]);
-                curr_index+= sm->meta_kernel_sizes[i];
+               // printf("curr index is %d and amount to write is %d with limit %d\n", curr_index, sm->meta_kernel_sizes[i],size_w);
+                for(int j = 1 ; j< sm->meta_kernel_sizes[i] ; j++)
+                {
+                    assert((curr_index+j-1)<size_w);
+                    assert(curr_index+j-1>=0);
+                    w[curr_index+j-1] = (sm->meta_w[i][j]/W_SCALE)*sm->w[i+2];
+                    //printf("%d ", curr_index+j);
+                }
+                curr_index+= sm->meta_kernel_sizes[i]-1;
            }
         }
 	
@@ -932,11 +974,19 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 					argypos[curr_point] = (cached_images[x.example_id][j].points_and_descriptors[i].y);
 					argclst[curr_point] = cached_images[x.example_id][j].points_and_descriptors[i].descriptor+offset-2;
 					assert(argclst[curr_point]>=0);
-					assert(argclst[curr_point]<sm->sizeSinglePsi);
+                    assert(argclst[curr_point]<size_w);
+                    if(!sm->is_meta)
+                    {
+					    assert(argclst[curr_point]<sm->sizeSinglePsi);
+                    }
+                    else
+                    {
+                        assert(argclst[curr_point]<sm->sizeSingleMetaPsi);
+                    }
 					curr_point++;
 				}
 			}
-			offset += sm->kernel_sizes[j];
+			offset += sm->is_meta ? (sm->meta_kernel_sizes[j]-1) : sm->kernel_sizes[j];
 		}
 		int solvedExactly=1;
 		assert(curr_point == total_indices);
@@ -944,7 +994,7 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 
 		Box ourbox = pyramid_search(total_indices, 1+(int)(x.width_pixel), 1+(int)(x.height_pixel),
 										 argxpos, argypos, argclst,
-											sm->sizeSinglePsi, N, w,
+											size_w, N, w,
 											1e9, solvedExactly, factor,
                                             NUM_BBOXES_PER_IMAGE, cached_images[x.example_id][0].object_boxes);
 
@@ -957,12 +1007,10 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		LATENT_VAR h_latent_var =  make_latent_var(sm);
 		for(int i =0; i< sm->num_kernels; i++)
 			h_latent_var.boxes[i] = h_temp;
-//		printf("their bounding box is left %d right %d top %d, bottom %d\n", ourbox.left, ourbox.right, ourbox.top, ourbox.bottom);
 
-//		printf("given width %d given height %d num points %d\n",  1+(int)(x.width_pixel/factor),  1+(int)(x.height_pixel/factor), curr_point);
 		double ourscore = compute_w_T_psi(&x, h_latent_var, y_curr.label,cached_images, valid_kernels, sm, sparm);
-//        printf("Score we get for a positive box is %f\n", ourscore);
-		if(ourscore+loss>*max_score)
+		
+        if(ourscore+loss>*max_score)
 		{
 			*max_score = ourscore+loss;
 			*y_best = y_curr;
@@ -977,19 +1025,8 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		gettimeofday(&end_time, NULL);
 		//double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
 //		printf("ESS got score %f and we got score %f\n", ourbox.score, ourscore-sm->w[1]);
-//		assert((ourscore - sm->w[1] - ourbox.score < 1e-4)&&((-ourscore +sm->w[1])+ ourbox.score < 1e-4));
-		/*if(!( (ourscore - sm->w[1] - ourbox.score < 1e-5)&&(ourscore -sm->w[1]- ourbox.score > -1e-5)))
-		{
-			printf("ESS got score %f and we got score %f\n", ourbox.score, ourscore-sm->w[1]);
-			printf("bounding box is x %f y %f width %f, height %f\n", h_temp.position_x_pixel,h_temp.position_y_pixel,
-				h_temp.bbox_width_pixel, h_temp.bbox_height_pixel);
-			printf("image width and height is %d %d name %s\n", x.width_pixel, x.height_pixel, x.image_path);
-			printf("Num descriptors %d\n", curr_point);
-		}*/
-		//assert(( (ourscore - sm->w[1] - ourbox.score < 1e-1)&&(ourscore -sm->w[1]- ourbox.score > -1e-1)));
-		//assert(( (ourbox.score - truescore < .001)&&(ourbox.score - truescore > -.001)));
-		free(argxpos);
-		free(argypos);
+        free(argxpos);		
+        free(argypos);
 		free(argclst);
         free(w);
 	}

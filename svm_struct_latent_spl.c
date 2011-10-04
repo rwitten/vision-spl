@@ -38,7 +38,7 @@
 #define STOP_PREC 1E-2
 #define UPDATE_BOUND 3
 #define MAX_CURRICULUM_ITER 10
-#define NUM_THREADS 12
+#define NUM_THREADS 0
 #define MAX_OUTER_ITER 20
 #define SSG_PRINT_ITERS 100
 
@@ -739,7 +739,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
              G[j][j] += gram_diag_regularized_solve;
            }
            r = mosek_qp_optimize(G, delta_plus_A_wlast, alpha, (long) size_active, C / (1.0 + 2.0 * sparm->prox_weight), &cur_obj); // regularized solve
-           if(r >= 1293 && r <= 1296) //numerical issues
+           if((r >= 1293 && r <= 1296) || r==4006 || r==4000) //numerical issues
            {
                double new_gram_diag = 10*gram_diag_regularized_solve;
                for(j = 0 ; j < size_active; j++)
@@ -845,7 +845,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
                   G[j][j] += gram_diag_unregularized_solve;
                 }
                r = mosek_qp_optimize(G, delta, alpha_lb, (long) size_active, C, &lb1); // unregularized solve
-               if(r >= 1293 && r <= 1296) //numerical issues
+               if((r >= 1293 && r <= 1296) || r==4006 || r==4000) //numerical issues
                {
                    double new_gram_diag = 10*gram_diag_unregularized_solve;
                    for(j = 0 ; j < size_active; j++)
@@ -1374,8 +1374,8 @@ int main(int argc, char* argv[]) {
 		    }  
             free(valid_kernels);
        }
-       printf("for negative examples spl weights are %.4f %.4f %.4f %.4f %.4f\n", spl_weight_neg[0], spl_weight_neg[1], spl_weight_neg[2], spl_weight_neg[3], spl_weight_neg[3]);
-       printf("for positive examples spl weights are %.4f %.4f %.4f %.4f %.4f\n", spl_weight_pos[0], spl_weight_pos[1], spl_weight_pos[2], spl_weight_pos[3], spl_weight_pos[3]);
+       //printf("for negative examples spl weights are %.4f %.4f %.4f %.4f %.4f\n", spl_weight_neg[0], spl_weight_neg[1], spl_weight_neg[2], spl_weight_neg[3], spl_weight_neg[3]);
+       //printf("for positive examples spl weights are %.4f %.4f %.4f %.4f %.4f\n", spl_weight_pos[0], spl_weight_pos[1], spl_weight_pos[2], spl_weight_pos[3], spl_weight_pos[3]);
     printf("\n\n\nOUTER ITER %d here at epsilon %f \n\n\n", outer_iter, epsilon); 
     /* cutting plane algorithm */
 
@@ -1501,7 +1501,7 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
 						double *init_spl_weight, double *spl_factor) {
   
   long i;
-	char filestub[1024];
+	char output_filestub[1024];
 
   /* set default */
   struct_parm->pos_neg_cost_ratio = 1.0;
@@ -1560,10 +1560,10 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
   strcpy (trainfile, argv[i]);
 
 	if((i+1)<argc) {
-		strcpy (filestub, argv[i+1]);
+		strcpy (output_filestub, argv[i+1]);
 	}
 	else {
-		strcpy (filestub, "lssvm");
+		strcpy (output_filestub, "lssvm");
 	}
 
     if((i+2)<argc) {
@@ -1579,10 +1579,10 @@ void my_read_input_parameters(int argc, char *argv[], char *trainfile, char* mod
 		strcpy(sm->filestub, "garbagewhichwillmakeyoucrash");
 	}
 
-    sprintf(modelfile, "%s.model", filestub);
-	sprintf(examplesfile,"%s.examples",filestub);
-	sprintf(timefile,"%s.time",filestub);
-	sprintf(latentfile,"%s.latent",filestub);
+    sprintf(modelfile, "%s.model", output_filestub);
+	sprintf(examplesfile,"%s.examples",output_filestub);
+	sprintf(timefile,"%s.time",output_filestub);
+	sprintf(latentfile,"%s.latent",output_filestub);
 
 	/* self-paced learning weight should be non-negative */
 	if(*init_spl_weight < 0.0)
