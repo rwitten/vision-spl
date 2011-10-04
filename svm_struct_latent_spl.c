@@ -48,6 +48,7 @@
 #define DEBUG_LEVEL 0
 
 int mosek_qp_optimize(double**, double*, double*, long, double, double*);
+int mosek_qp_primal_optimize(double** cons, double* margins, double* objective,double* w, double C, double size_w, int num_constraints);
 
 void my_read_input_parameters(int argc, char* argv[], char *trainfile, char *modelfile, char *examplesfile, char *timefile, char *latentfile,LEARN_PARM *learn_parm, KERNEL_PARM *kernel_parm, STRUCTMODEL *sm, STRUCT_LEARN_PARM *struct_parm, double *init_spl_weight, double *spl_factor);
 
@@ -826,14 +827,24 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 
         if( (iter % ITERS_TO_UPDATE_LOWER_BOUND) == 0)
         {
-                        double lb1;
+            double lb1;
             int no_solution = 1;
             while(no_solution)
             {
                 for(j = 0 ; j < size_active; j++)
                 {
                   G[j][j] += gram_diag_unregularized_solve;
-                }   
+                }
+               double** cons = (double**)malloc(sizeof(double*)*size_active);
+               for(j = 0 ; j <size_active ; j++)
+               {
+                 cons[j] = (double*) calloc(sm->sizePsi+1,sizeof(double));
+                 add_vector_ns(w,dXc[j]->fvec,1);
+                 cons[j][0] = 1;
+               }
+               double new_objective;
+               double* new_w = (double*)malloc(sizeof(double)*sm->sizePsi);
+               r = mosek_qp_primal_optimize(cons, delta, &new_objective, new_w, C,sm->sizePsi,size_active); // unregularized solve
                r = mosek_qp_optimize(G, delta, alpha_lb, (long) size_active, C, &lb1); // unregularized solve
                if(r >= 1293 && r <= 1296) //numerical issues
                {
@@ -888,7 +899,11 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 
             double lb = MAX(0,C*max_slack);
             for(i = 0 ; i < sm->sizePsi+1 ; i ++)
+            {
+                printf("W %f w_temp %f\n", w[i], w_temp[i]);
                 lb += .5* w_temp[i]*w_temp[i];
+            }
+
             if(lb > LOWER_BOUND) // THIS EXACT SOLUTION OF PARTIAL QP PROVIDES A LOWER BOUND 
                                 //(SINCE IT HAS A SUBSET OF THE CONSTRAINTS OF THE TRUE PROBLEM)
             {

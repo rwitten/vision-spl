@@ -29,8 +29,8 @@ ess:    ess.cc quality_pyramid.cc quality_box.cc
 	g++ $(ESSFLAGS) quality_box.cc 
 	g++ $(ESSFLAGS) ess.cc 
 
-svm_bbox_learn: svm_struct_latent_spl.o svm_common.o mosek_qp_optimize.o svm_struct_latent_api.o SFMT.o
-	$(LD) $(LDFLAGS) quality_pyramid.o quality_box.o ess.o svm_struct_latent_spl.o svm_common.o mosek_qp_optimize.o SFMT.o svm_struct_latent_api.o -o svm_bbox_learn $(LIBS) -L $(MSKLIBPATH) $(MSKLINKFLAGS)
+svm_bbox_learn: svm_struct_latent_spl.o svm_common.o mosek_qp_primal_optimize.o mosek_qp_optimize.o svm_struct_latent_api.o SFMT.o
+	$(LD) $(LDFLAGS) quality_pyramid.o quality_box.o ess.o svm_struct_latent_spl.o svm_common.o mosek_qp_optimize.o mosek_qp_primal_optimize.o SFMT.o svm_struct_latent_api.o -o svm_bbox_learn $(LIBS) -L $(MSKLIBPATH) $(MSKLINKFLAGS)
 
 svm_bbox_classify: svm_struct_latent_classify.o svm_common.o svm_struct_latent_api.o SFMT.o
 	$(LD) $(LDFLAGS) quality_pyramid.o quality_box.o ess.o svm_struct_latent_classify.o svm_common.o SFMT.o svm_struct_latent_api.o -o svm_bbox_classify $(LIBS)
@@ -40,6 +40,9 @@ svm_struct_latent_spl.o: svm_struct_latent_spl.c
 
 svm_common.o: ./svm_light/svm_common.c ./svm_light/svm_common.h ./svm_light/kernel.h
 	$(CC) -c $(CFLAGS) ./svm_light/svm_common.c -o svm_common.o
+
+mosek_qp_primal_optimize.o: mosek_qp_primal_optimize.c
+	$(CC) -c $(CFLAGS) mosek_qp_primal_optimize.c -o mosek_qp_primal_optimize.o -I $(MOSEK_H)
 
 mosek_qp_optimize.o: mosek_qp_optimize.c
 	$(CC) -c $(CFLAGS) mosek_qp_optimize.c -o mosek_qp_optimize.o -I $(MOSEK_H)
