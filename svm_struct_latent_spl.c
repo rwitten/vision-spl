@@ -657,7 +657,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 	delta_plus_A_wlast = NULL;
 
   double gram_diag_regularized_solve = 1e-25;
-  double gram_diag_unregularized_solve = 1e-25;
+  //double gram_diag_unregularized_solve = 1e-25;
 
   printf("Running structural SVM solver: "); fflush(stdout); 
   
@@ -824,10 +824,19 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 			UPPER_BOUND=threshold;
             memcpy(w_best, w, sizeof(double)*(sm->sizePsi+1));
         }
+         double** cons = (double**)malloc(sizeof(double*)*size_active);
+           for(j = 0 ; j <size_active ; j++)
+           {
+             cons[j] = (double*) calloc(sm->sizePsi+1,sizeof(double));
+             add_vector_ns(cons[j],dXc[j]->fvec,1);
+             cons[j][0] = 1;
+           }
+        double new_objective;
 
         if( (iter % ITERS_TO_UPDATE_LOWER_BOUND) == 0)
         {
-            double lb1;
+           r = mosek_qp_primal_optimize(cons, delta, &new_objective, w_temp, C,sm->sizePsi,size_active); // unregularized solve
+            /*double lb1;
             int no_solution = 1;
             while(no_solution)
             {
@@ -835,16 +844,6 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
                 {
                   G[j][j] += gram_diag_unregularized_solve;
                 }
-               double** cons = (double**)malloc(sizeof(double*)*size_active);
-               for(j = 0 ; j <size_active ; j++)
-               {
-                 cons[j] = (double*) calloc(sm->sizePsi+1,sizeof(double));
-                 add_vector_ns(w,dXc[j]->fvec,1);
-                 cons[j][0] = 1;
-               }
-               double new_objective;
-               double* new_w = (double*)malloc(sizeof(double)*sm->sizePsi);
-               r = mosek_qp_primal_optimize(cons, delta, &new_objective, new_w, C,sm->sizePsi,size_active); // unregularized solve
                r = mosek_qp_optimize(G, delta, alpha_lb, (long) size_active, C, &lb1); // unregularized solve
                if(r >= 1293 && r <= 1296) //numerical issues
                {
@@ -865,18 +864,13 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
                 {
                     G[j][j] -= gram_diag_unregularized_solve;
                 }   
-            }
+            }*/
             if(r)
             {
                 printf("Error %d in mosek_qp_optimize: Check ${MOSEKHOME}/${VERSION}/tools/platform/${PLATFORM}/h/mosek.h\n",r);
                 exit(1);
             }
-            clear_nvector(w_temp,sm->sizePsi);
-            for (j=0;j<size_active;j++) {
-                if (alpha_lb[j] > C * ALPHA_THRESHOLD) {
-                        add_vector_ns(w_temp,dXc[j]->fvec,alpha_lb[j]);
-                }
-            }
+            
             double max_slack = -DBL_MAX;
             assert(size_active>1);
             for(i = 0; i < size_active; i++) {
@@ -895,20 +889,19 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
                 if(slack>max_slack)
                     max_slack = slack;
             }
-            
-
+           
             double lb = MAX(0,C*max_slack);
-            for(i = 0 ; i < sm->sizePsi+1 ; i ++)
+            for(i = 1 ; i < sm->sizePsi+1 ; i ++)
             {
-                printf("W %f w_temp %f\n", w[i], w_temp[i]);
                 lb += .5* w_temp[i]*w_temp[i];
             }
-
+            lb = new_objective;
             if(lb > LOWER_BOUND) // THIS EXACT SOLUTION OF PARTIAL QP PROVIDES A LOWER BOUND 
                                 //(SINCE IT HAS A SUBSET OF THE CONSTRAINTS OF THE TRUE PROBLEM)
             {
                 LOWER_BOUND=lb;
             }
+            printf("new lb is %f\n", lb);
         }
 
 		if((iter % CLEANUP_CHECK) == 0)

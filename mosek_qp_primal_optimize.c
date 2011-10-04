@@ -108,6 +108,7 @@ int mosek_qp_primal_optimize(double** cons, double* margins, double* objective,d
         r = MSK_putqobj(task,size_w,qsubi,qsubj,qval);
       }
 
+      MSK_putdouparam(task, MSK_DPAR_INTPNT_TOL_REL_GAP, 1E-14);
         
       if ( r==MSK_RES_OK )
         r = MSK_optimize(task);
@@ -115,6 +116,7 @@ int mosek_qp_primal_optimize(double** cons, double* margins, double* objective,d
 
       if ( r==MSK_RES_OK )
       {
+
         MSK_getsolutionslice(task,
                              MSK_SOL_ITR,
                              MSK_SOL_ITEM_XX,
@@ -123,14 +125,11 @@ int mosek_qp_primal_optimize(double** cons, double* margins, double* objective,d
                              (MSKrealt*)w);
 
       }
-   double primal_obj;
-  MSK_getprimalobj(task, MSK_SOL_ITR, &primal_obj);
-  printf("Primal obj: %f\n", primal_obj);
+  MSK_getprimalobj(task, MSK_SOL_ITR, objective);
   MSK_deletetask(&task);
   
   MSK_deleteenv(&env);
 
-  printf("Return code: %d\n",r);
 
   return ( r );
 }
