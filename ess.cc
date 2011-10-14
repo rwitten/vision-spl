@@ -193,12 +193,17 @@ Box pyramid_search(int argnumpoints, int argwidth, int argheight,
 		struct timeval end_time;
 		int counter = 0;
 
-        for(int p = 0 ; p < NUM_BOXES ; p++)
+        for(int p = 0 ; p < 1; p++) //SUPPOSED TO BE NUM_BOXES
         {
-            single->only[0] = boxes[p].left;
-            single->only[1] = boxes[p].top;
-            single->only[2] = boxes[p].right;
-            single->only[3] = boxes[p].bottom;
+         
+            single->only[0] = 1;
+            single->only[1] = 1;
+            single->only[2] = argwidth-1;
+            single->only[3] = argheight-1;
+            //single->only[0] = boxes[p].left;
+            //single->only[1] = boxes[p].top;
+            //single->only[2] = boxes[p].right;
+            //single->only[3] = boxes[p].bottom;
             single->upper = quality_bound.upper_bound(single);
             if(single->upper > best->upper)
             {

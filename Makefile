@@ -28,6 +28,7 @@ ess:    ess.cc quality_pyramid.cc quality_box.cc
 	g++ $(ESSFLAGS) quality_pyramid.cc 
 	g++ $(ESSFLAGS) quality_box.cc 
 	g++ $(ESSFLAGS) ess.cc 
+	g++ $(ESSFLAGS) kernel.hh
 
 svm_bbox_learn: svm_struct_latent_spl.o svm_common.o mosek_qp_primal_optimize.o mosek_qp_optimize.o svm_struct_latent_api.o SFMT.o
 	$(LD) $(LDFLAGS) quality_pyramid.o quality_box.o ess.o svm_struct_latent_spl.o svm_common.o mosek_qp_optimize.o mosek_qp_primal_optimize.o SFMT.o svm_struct_latent_api.o -o svm_bbox_learn $(LIBS) -L $(MSKLIBPATH) $(MSKLINKFLAGS)

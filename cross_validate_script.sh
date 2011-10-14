@@ -11,19 +11,19 @@ kernels[7]='metakernel'
 
 for randomness in 1
 do
-	for classfold in  'verysmall'
+	for classfold in  'car'
 	do
-		for foldnum in 1
+		for foldnum in 1 2 3 
 		do
-			for C in 100000
+			for C in 1000000000 10000000000
 			do
 				for l in 0
 				do
-					for h in 0
+					for h in 0 
 					do
 						for algorithm in  1
 						do
-							for prox_weight in 10
+							for prox_weight in .1
                             do
                                 for epsilon in .01 
                                 do
@@ -56,7 +56,7 @@ do
                                     echo "cd $base_dir" >> $script_name
                                     echo $command_starttimestamp >> $script_name
  
-                                    for kernel in 1 2 3 4 5 6 7
+                                    for kernel in 6
                                     do
                                         basename_kernel=`./name.sh ${algorithm} ${classfold} ${C} ${foldnum} ${randomness} ${h} ${l} ${prox_weight} ${epsilon} ${kernels[$kernel]}`
                                         if [ -f ./output/${basename_kernel}.starttime ]; then
@@ -87,7 +87,7 @@ do
                                         continue
                                     fi
                                     echo "Posting job " ${base_dir}/${script_name}
-                    #                ~/bin/appendJob.pl ${base_dir}/${script_name}
+                                    ~/bin/appendJob.pl ${base_dir}/${script_name}
                                 done
                             done
 						done

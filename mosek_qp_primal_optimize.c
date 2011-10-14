@@ -12,6 +12,8 @@
 #include <math.h>
 #include "mosek.h" /* Include the MOSEK definition file. */
 
+#define MSK_IPAR_INTPNT_MAX_ITERATIONS 1000
+
 static void MSKAPI printstr(void *handle,
                             char str[])
 {
@@ -20,7 +22,7 @@ static void MSKAPI printstr(void *handle,
 
 
 //int rafi_solver(int size_w, int num_constraints, double C, double** cons, double* margins)
-int mosek_qp_primal_optimize(double** cons, double* margins, double* objective,double* w, double C, double size_w, int num_constraints)
+int mosek_qp_primal_optimize(double** cons, double* margins, double* objective,double* w, double C, int size_w, int num_constraints)
 {
   int NUMVAR = size_w+1;
   int NUMCON = num_constraints;

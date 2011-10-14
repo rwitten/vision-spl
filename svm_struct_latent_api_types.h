@@ -20,6 +20,7 @@
 # include "svm_light/svm_common.h"
 #include <pthread.h>
 #include "ess.hh"
+#include "kernel.hh"
 
 typedef struct pattern {
   /*
@@ -92,7 +93,8 @@ typedef struct sample {
 
 
 typedef struct structmodel {
-  double *w;          /* pointer to the learned weights */
+  //double *w;          /* pointer to the learned weights */
+  kernel_obj w_like;
   MODEL  *svm_model;  /* the learned SVM model */
   long   sizeSinglePsi; 
   long   sizePsi;     /* maximum number of weights in w */

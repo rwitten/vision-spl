@@ -211,6 +211,7 @@ void read_kernel_info(char * kernel_info_file, STRUCTMODEL * sm) {
   int k;
   FILE * fp = fopen(kernel_info_file, "r");
   int firstline;
+  assert(fp);
   fscanf(fp, "%d\n", &firstline);
     if(firstline)
   {
@@ -294,6 +295,10 @@ void init_latent_variables(SAMPLE *sample, LEARN_PARM *lparm, STRUCTMODEL *sm, S
 	{
 		LATENT_VAR h = make_latent_var(sm);
 		LATENT_BOX random;
+		//random.position_x_pixel = sample->examples[i].x.gt_x_pixel;
+		//random.position_y_pixel = sample->examples[i].x.gt_y_pixel;
+		//random.bbox_width_pixel = sample->examples[i].x.gt_width_pixel; 
+		//random.bbox_height_pixel = sample->examples[i].x.gt_height_pixel;
 		random.position_x_pixel = 1;//(long) floor(genrand_res53()*(sample->examples[i].x.width_pixel-10));
 		random.position_y_pixel = 1;//(long) floor(genrand_res53()*(sample->examples[i].x.height_pixel-10));
 		random.bbox_width_pixel = sample->examples[i].x.width_pixel-1;//(long) floor(genrand_res53()*(sample->examples[i].x.width_pixel-random.position_x_pixel-5));
@@ -577,15 +582,17 @@ void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, LATENT_BOX ou
                 {
                     assert(words[locations[position-1]].weight>0);
                     assert(words[locations[position-1]].wnum != 0);
-                    score += sm->w[words[locations[position-1]].wnum];
-                    words[locations[position-1]].weight += 1.0/W_SCALE;
+                    //score += sm->w[words[locations[position-1]].wnum];
+                    //words[locations[position-1]].weight += 1.0/W_SCALE;
                 }
             }
             else
             {
+               assert(0); //IS DOING SUM POOLING
+               assert(sm->is_meta);
                assert(position>=0);
                assert(position< sm->meta_kernel_sizes[kernel_ind]);
-               words[*num_words].weight += (sm->meta_w[kernel_ind][position] / W_SCALE);
+               words[*num_words].weight += (sm->meta_w[kernel_ind][position] / W_SCALE); //THIS IS SUM_POOLING
             }
 		}
   }
@@ -832,8 +839,30 @@ void compute_highest_scoring_latents_hallucinate(PATTERN x,LABEL y,IMAGE_KERNEL_
 			double* argxpos = (double*)malloc(sizeof(double)*total_indices);
 			double* argypos = (double*)malloc(sizeof(double)*total_indices);
 			double* argclst = (double*)malloc(sizeof(double)*total_indices);
-			double* w = &sm->w[2];
+            
+            int size_w = sm->is_meta ? (sm->sizeSingleMetaPsi-sm->num_kernels) : (sm->sizeSinglePsi-1);
+            double* w = (double*) malloc(sizeof(double)*size_w);
 
+            if(!sm->is_meta)
+            {
+                memcpy(w, &sm->w[2], sizeof(double)*(size_w));
+            }
+            else
+            {
+               int curr_index = 0;
+               for(int i = 0 ; i < sm->num_kernels; i++)
+               {
+                   // printf("curr index is %d and amount to write is %d with limit %d\n", curr_index, sm->meta_kernel_sizes[i],size_w);
+                    for(int j = 1 ; j< sm->meta_kernel_sizes[i] ; j++)
+                    {
+                        assert((curr_index+j-1)<size_w);
+                        assert(curr_index+j-1>=0);
+                        w[curr_index+j-1] = (sm->meta_w[i][j]/W_SCALE)*sm->w[i+2];
+                        //printf("%d ", curr_index+j);
+                    }
+                    curr_index+= sm->meta_kernel_sizes[i]-1;
+               }
+            }
 			int factor = 20;
 			int curr_point = 0;
 			for(int i = 0 ; i<cached_images[x.example_id][k].num_points;i++)
@@ -842,7 +871,7 @@ void compute_highest_scoring_latents_hallucinate(PATTERN x,LABEL y,IMAGE_KERNEL_
 				argypos[curr_point] = (cached_images[x.example_id][k].points_and_descriptors[i].y);
 				argclst[curr_point] = cached_images[x.example_id][k].points_and_descriptors[i].descriptor+offset-2;
 				assert(argclst[curr_point]>=0);
-				assert(argclst[curr_point]<sm->sizeSinglePsi);
+				assert(argclst[curr_point]<size_w);
 				curr_point++;
 			}
 			offset += sm->kernel_sizes[k];
@@ -851,7 +880,7 @@ void compute_highest_scoring_latents_hallucinate(PATTERN x,LABEL y,IMAGE_KERNEL_
 			int N = sparm->do_spm ? 2 : 1;
 			Box ourbox = pyramid_search(total_indices, 1+(int)(x.width_pixel), 1+(int)(x.height_pixel),
 											 argxpos, argypos, argclst,
-												sm->sizeSinglePsi, N, w,
+												size_w, N, w,
 												1e9, solvedExactly, factor,
                                                 NUM_BBOXES_PER_IMAGE, cached_images[x.example_id][0].object_boxes ); 
 
@@ -862,18 +891,11 @@ void compute_highest_scoring_latents_hallucinate(PATTERN x,LABEL y,IMAGE_KERNEL_
 			h_temp.bbox_height_pixel=(ourbox.bottom-ourbox.top);
 
 			h_latent_var.boxes[k] = h_temp;
-//			printf("working on kernel %d\n", k);
-			//printf("their bounding box is left %f top  %f width %f, height %f\n", h_temp.position_x_pixel, h_temp.position_y_pixel, h_temp.bbox_width_pixel, h_temp.bbox_height_pixel);
-
-
-	//		printf("given width %d given height %d num points %d\n",  1+(int)(x.width_pixel/factor),  1+(int)(x.height_pixel/factor), curr_point);
-			
 			single_valid_kernels[k] = 0;
-//			printf("ESS got score %f and we got score %f  or %f on %d in da box\n", ourbox.score, ourscore, fsscore, number_valid);
-			//assert((ourscore - sm->w[1] - ourbox.score < 1e-1)&&((-ourscore +sm->w[1])+ ourbox.score < 1e-1));
 			free(argxpos);
 			free(argypos);
 			free(argclst);
+            free(w);
 		}
 		free(single_valid_kernels);
 		double ourscore = compute_w_T_psi(&x, h_latent_var, y_curr.label,cached_images, valid_kernels, sm, sparm);
@@ -1052,7 +1074,7 @@ double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_
 		
 		if(cur_class>0)
 		{
-	   	y_curr.label=cur_class;
+    	   	y_curr.label=cur_class;
 			compute_highest_scoring_latents(x,y_curr,cached_images,NULL,sm,sparm,&max_score,h,y,y_curr);
 		}
 	}
@@ -1120,7 +1142,7 @@ LATENT_VAR infer_latent_variables(PATTERN x, LABEL y, IMAGE_KERNEL_CACHE ** cach
 
   //printf("width = %d, height = %d\n", x.width, x.height);
   //time_t start_time = time(NULL);
-
+  assert(0);
   LATENT_VAR h = make_latent_var(sm);
   if (y.label == 0) {
 		for(int i = 0 ; i < sm->num_kernels ; i++)
@@ -1141,7 +1163,6 @@ LATENT_VAR infer_latent_variables(PATTERN x, LABEL y, IMAGE_KERNEL_CACHE ** cach
 
     return h;
 	}*/
-
 	double MAX_SCORE_ATTAINED = -DBL_MAX;
 	LABEL garbage; //will get set to whatever the variable y holds.
 	garbage.label=0;

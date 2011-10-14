@@ -38,7 +38,7 @@
 #define STOP_PREC 1E-2
 #define UPDATE_BOUND 3
 #define MAX_CURRICULUM_ITER 10
-#define NUM_THREADS 0
+#define NUM_THREADS 12
 #define MAX_OUTER_ITER 20
 #define SSG_PRINT_ITERS 100
 
@@ -48,7 +48,7 @@
 #define DEBUG_LEVEL 0
 
 int mosek_qp_optimize(double**, double*, double*, long, double, double*);
-int mosek_qp_primal_optimize(double** cons, double* margins, double* objective,double* w, double C, double size_w, int num_constraints);
+int mosek_qp_primal_optimize(double** cons, double* margins, double* objective,double* w, double C, int size_w, int num_constraints);
 
 void my_read_input_parameters(int argc, char* argv[], char *trainfile, char *modelfile, char *examplesfile, char *timefile, char *latentfile,LEARN_PARM *learn_parm, KERNEL_PARM *kernel_parm, STRUCTMODEL *sm, STRUCT_LEARN_PARM *struct_parm, double *init_spl_weight, double *spl_factor);
 
@@ -824,18 +824,27 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 			UPPER_BOUND=threshold;
             memcpy(w_best, w, sizeof(double)*(sm->sizePsi+1));
         }
-         double** cons = (double**)malloc(sizeof(double*)*size_active);
+         
+        if( (iter % ITERS_TO_UPDATE_LOWER_BOUND) == 0)
+        {
+            double** cons = (double**)malloc(sizeof(double*)*size_active);
            for(j = 0 ; j <size_active ; j++)
            {
              cons[j] = (double*) calloc(sm->sizePsi+1,sizeof(double));
              add_vector_ns(cons[j],dXc[j]->fvec,1);
              cons[j][0] = 1;
            }
-        double new_objective;
-
-        if( (iter % ITERS_TO_UPDATE_LOWER_BOUND) == 0)
-        {
-           r = mosek_qp_primal_optimize(cons, delta, &new_objective, w_temp, C,sm->sizePsi,size_active); // unregularized solve
+          double new_objective;
+            struct timeval primal_start_time;
+            struct timeval primal_finish_time;
+           gettimeofday(&primal_start_time, NULL);
+          r = mosek_qp_primal_optimize(cons, delta, &new_objective, w_temp, C,sm->sizePsi,size_active); // unregularized solve, be worried about hte results of w_temp
+           gettimeofday(&primal_finish_time, NULL);
+          microseconds = 1e6 * (primal_finish_time.tv_sec - primal_start_time.tv_sec) + (primal_finish_time.tv_usec - primal_start_time.tv_usec);
+		printf("Solving primal QP took %f\n", (double)microseconds/1000.0);
+for(j = 0 ; j< size_active ; j++)
+            free(cons[j]);
+          free(cons);
             /*double lb1;
             int no_solution = 1;
             while(no_solution)
@@ -871,7 +880,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
                 exit(1);
             }
             
-            double max_slack = -DBL_MAX;
+            /*double max_slack = -DBL_MAX;
             assert(size_active>1);
             for(i = 0; i < size_active; i++) {
                 double slack = 0;
@@ -894,14 +903,12 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
             for(i = 1 ; i < sm->sizePsi+1 ; i ++)
             {
                 lb += .5* w_temp[i]*w_temp[i];
-            }
-            lb = new_objective;
-            if(lb > LOWER_BOUND) // THIS EXACT SOLUTION OF PARTIAL QP PROVIDES A LOWER BOUND 
+            }*/
+            if(new_objective> LOWER_BOUND) // THIS EXACT SOLUTION OF PARTIAL QP PROVIDES A LOWER BOUND 
                                 //(SINCE IT HAS A SUBSET OF THE CONSTRAINTS OF THE TRUE PROBLEM)
             {
-                LOWER_BOUND=lb;
+                LOWER_BOUND=new_objective;
             }
-            printf("new lb is %f\n", lb);
         }
 
 		if((iter % CLEANUP_CHECK) == 0)
@@ -909,7 +916,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
 			printf("+"); fflush(stdout);
 			size_active = resize_cleanup(size_active, &idle, &alpha, &alpha_lb,&delta, &delta_plus_A_wlast, &dXc, &G, &mv_iter);
 		}
-		printf("We have ub %f and lb %f on iter %d\n", UPPER_BOUND, LOWER_BOUND, iter);
+		printf("We have ub %f and lb %f on iter %d with tol %f\n", UPPER_BOUND, LOWER_BOUND, iter, C*epsilon);
 	    memcpy(w_last, w, (sm->sizePsi + 1) * sizeof(double));
   //      assert(UPPER_BOUND + epsilon>LOWER_BOUND);
  	} // end cutting plane while loop 
@@ -1290,7 +1297,7 @@ int main(int argc, char* argv[]) {
         allon_examples[i]=1;
     } 
 
-	if (init_spl_weight>0.0) {
+	if (init_spl_weight>0.0) { // this is saying "WE AREN'T DOING CCCP" SO WE FIND A GOOD STARTING POINT BY SOME CCCP ITERATIONS
 		printf("INITIALIZATION\n"); fflush(stdout);
 		for (i=0;i<m;i++) {
 			valid_examples[i] = 1;
@@ -1306,9 +1313,9 @@ int main(int argc, char* argv[]) {
 			primal_obj = stochastic_subgradient_descent(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples,valid_example_kernels);
 		  }
   		for (i=0;i<m;i++) {
-   	 			LATENT_VAR h_temp = ex[i].h;
-      	  ex[i].h = infer_latent_variables(ex[i].x, ex[i].y, cached_images, &sm, &sparm);
-          free_latent_var(h_temp);
+   	    //  LATENT_VAR h_temp = ex[i].h;
+      	//  ex[i].h = infer_latent_variables(ex[i].x, ex[i].y, cached_images, &sm, &sparm);
+        //  free_latent_var(h_temp);
    		}
 	    for (i=0;i<m;i++) {
             free_svector(fycache[i]);
@@ -1343,17 +1350,9 @@ int main(int argc, char* argv[]) {
     //printing some stuff before doing outer loop
     primal_obj = current_obj_val(ex, fycache, m, cached_images, &sm, &sparm, C, allon_examples, allon_example_kernels);
     printf("primal objective (AFTER INITIALIZATION): %f\n", primal_obj);
-    double* temp_w = create_nvector(sm.sizePsi);
-    clear_nvector(temp_w, sm.sizePsi);
-    double* backup_w = sm.w;
-    sm.w = temp_w;
-    primal_obj = current_obj_val(ex, fycache, m, cached_images, &sm, &sparm, C, allon_examples, allon_example_kernels);
-    printf("primal objective (AFTER INITIALIZATION, W=0): %f\n", primal_obj);
-    sm.w = backup_w; //undo any harm done by me
-    free(temp_w); 
 
     //this is the outer loop.   
-    while ((outer_iter<4)||((!stop_crit)&&(outer_iter<MAX_OUTER_ITER))) { 
+    while ((outer_iter<1)||((!stop_crit)&&(outer_iter<MAX_OUTER_ITER))) { 
         if(!outer_iter && init_spl_weight) {
             int * valid_kernels = (int*)calloc(sm.num_kernels, sizeof(int));
             if (sparm.multi_kernel_spl) {
@@ -1419,9 +1418,9 @@ int main(int argc, char* argv[]) {
         latent_update=0;
         if(nValid) {
             for (i=0;i<m;i++) {
-                LATENT_VAR h_temp = ex[i].h;
-                ex[i].h = infer_latent_variables(ex[i].x, ex[i].y, cached_images, &sm, &sparm);
-                free_latent_var(h_temp);
+//                LATENT_VAR h_temp = ex[i].h;
+//                ex[i].h = infer_latent_variables(ex[i].x, ex[i].y, cached_images, &sm, &sparm);
+//                free_latent_var(h_temp);
             }
         }
         stop_crit = 1;
