@@ -94,7 +94,7 @@ typedef struct sample {
 
 typedef struct structmodel {
   //double *w;          /* pointer to the learned weights */
-  kernel_obj w_like;
+  kernel_obj w_curr;
   MODEL  *svm_model;  /* the learned SVM model */
   long   sizeSinglePsi; 
   long   sizePsi;     /* maximum number of weights in w */

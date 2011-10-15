@@ -137,7 +137,7 @@ int main(int argc, char* argv[]) {
     fclose(flabel);
     fclose(flatent);
 
-    double w_cost = regularizaton_cost(model.w, model.sizePsi);
+    double w_cost = regularizaton_cost(model.w_curr.get_vec(), model.sizePsi);
     avghingeloss =  avghingeloss/testsample.n;
     printf("\n");
     printf("Objective Value with C=%f is %f\n\n\n", sparm.C, (sparm.C * avghingeloss) + w_cost);

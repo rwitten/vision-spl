@@ -120,6 +120,7 @@ double print_all_scores(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CAC
   /* find cutting plane */
   lhs = NULL;
   margin = 0;
+  double* w_curr = sm->w_curr.get_vec();
   for (i=0;i<m;i++) {
 	if(!valid_examples[i])
 		continue;
@@ -128,7 +129,7 @@ double print_all_scores(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CAC
     fy = psi(ex[i].x,ex[i].y,ex[i].h,cached_images, valid_example_kernels[i],sm,sparm);
     fybar = psi(ex[i].x,ybar,hbar,cached_images,valid_example_kernels[i],sm,sparm);
     lossval = loss(ex[i].y,ybar,hbar,sparm);
-    printf("%f\n",lossval+sprod_ns(sm->w,fybar)-sprod_ns(sm->w,fy));
+    printf("%f\n",lossval+sprod_ns(w_curr,fybar)-sprod_ns(w_curr,fy));
 
     /* scale difference vector */
     for (f=fy;f;f=f->next) {
@@ -146,19 +147,18 @@ double print_all_scores(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CAC
     //margin+=lossval/m;
 		margin += lossval*ex[i].x.example_cost/m;
   }
-
   /* compact the linear representation */
   new_constraint = add_list_nn(lhs, sm->sizePsi);
   free_svector(lhs);
 
 	obj = margin;
 	for(i = 1; i < sm->sizePsi+1; i++)
-		obj -= new_constraint[i]*sm->w[i];
+		obj -= new_constraint[i]*w_curr[i];
 	if(obj < 0.0)
 		obj = 0.0;
 	obj *= C;
 	for(i = 1; i < sm->sizePsi+1; i++)
-		obj += 0.5*sm->w[i]*sm->w[i];
+		obj += 0.5*w_curr[i]*w_curr[i];
   free(new_constraint);
 
 	return obj;
@@ -205,17 +205,18 @@ double current_obj_val(EXAMPLE *ex, SVECTOR **fycache, long m, IMAGE_KERNEL_CACH
   }
 
   /* compact the linear representation */
+  double const* w_curr = sm->w_curr.get_vec();
   new_constraint = add_list_nn(lhs, sm->sizePsi);
   free_svector(lhs);
 	free_latent_var(hbar);
 	obj = margin;
 	for(i = 1; i < sm->sizePsi+1; i++)
-		obj -= new_constraint[i]*sm->w[i];
+		obj -= new_constraint[i]*w_curr[i];
 	if(obj < 0.0)
 		obj = 0.0;
 	obj *= C;
 	for(i = 1; i < sm->sizePsi+1; i++)
-		obj += 0.5*sm->w[i]*sm->w[i];
+		obj += 0.5*w_curr[i]*w_curr[i];
   free(new_constraint);
 
 	return obj;
@@ -936,6 +937,7 @@ for(j = 0 ; j< size_active ; j++)
   free(w_temp);
   free(G);
   free(dXc);
+  free(alpha_lb);
   free(alpha);
   free(w_last);
   free(delta_plus_A_wlast);
@@ -988,7 +990,7 @@ int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPL
 		return (m);
 	}
 	
-	printf("NOT DOING CCCP\n");fflush(stdout);
+/*	printf("NOT DOING CCCP\n");fflush(stdout);
   int pos_count=0; long j;
 
 	sortStruct *slack = (sortStruct *) malloc(m*sizeof(sortStruct));
@@ -1052,7 +1054,9 @@ int update_valid_examples(double *w, long m, double C, SVECTOR **fycache, EXAMPL
   nValid = pos_cutoff + (neg_cutoff-pos_count);
 
 	free(slack);
-	return nValid;
+	return nValid;*/
+    assert(0);
+    return 0;
 }
 
 /*can be used to get the single weight for original SPL or to get one of the kernel weights for multi-kernel SPL*/
@@ -1247,9 +1251,9 @@ int main(int argc, char* argv[]) {
     IMAGE_KERNEL_CACHE ** cached_images = init_cached_images(ex,&sm);
     m = sample.n;
 
-    w = create_nvector(sm.sizePsi);
-    clear_nvector(w, sm.sizePsi);
-    sm.w = w; /* establish link to w, as long as w does not change pointer */
+    sm.w_curr.initialize(sm.num_kernels, sm.kernel_sizes, NULL);
+    w = sm.w_curr.get_vec();
+    //HERE WOULD BE A GOOD PLACE TO INIT w_curr in SPARM.
 
   /* some training information */
   printf("m = %ld\n", m);

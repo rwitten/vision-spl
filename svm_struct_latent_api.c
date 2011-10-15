@@ -553,7 +553,6 @@ void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, LATENT_BOX ou
         words[*num_words].weight = 0;
         words[*num_words].wnum= kernel_ind+2;
     }
-	double score = 0;
     int feasible_descriptors = 0;
     for(int i = 0; i< num_descriptors;i++)
 	{
@@ -575,7 +574,6 @@ void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, LATENT_BOX ou
                                                                            //the 0th guy is blank and the first guy is 1.
                     assert(words[*num_words].wnum!=0);
                     words[*num_words].weight = (1.0 / W_SCALE);
-                    score += sm->w[words[*num_words].wnum];
                     *num_words=*num_words+1;
                 }
                 else
@@ -780,7 +778,7 @@ double compute_w_T_psi(PATTERN *x, LATENT_VAR h, int classi, IMAGE_KERNEL_CACHE 
 			max_so_far = psi_vect->words[curr].wnum;
 		curr++;
 	}
-  w_T_psi = sprod_ns(sm->w, psi_vect);
+  w_T_psi = sprod_ns(sm->w_curr.get_vec(), psi_vect);
   free_svector(psi_vect);
   return w_T_psi;
 }
@@ -805,7 +803,8 @@ LATENT_VAR make_latent_var(STRUCTMODEL* sm)
 
 void compute_highest_scoring_latents_hallucinate(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cached_images,int* valid_kernels,STRUCTMODEL* sm,STRUCT_LEARN_PARM* sparm,double* max_score,LATENT_VAR* h_best,LABEL* y_best,LABEL y_curr)
 {
-  double loss = (y_curr.label == y.label) ? 0 : 1;
+  assert(0);
+/*  double loss = (y_curr.label == y.label) ? 0 : 1;
 
 	if(y_curr.label==0)
 	{
@@ -885,7 +884,7 @@ void compute_highest_scoring_latents_hallucinate(PATTERN x,LABEL y,IMAGE_KERNEL_
                                                 NUM_BBOXES_PER_IMAGE, cached_images[x.example_id][0].object_boxes ); 
 
 			LATENT_BOX h_temp;
-			h_temp.position_x_pixel=ourbox.left; /* starting position of object */
+			h_temp.position_x_pixel=ourbox.left; 
 			h_temp.position_y_pixel=ourbox.top;
 			h_temp.bbox_width_pixel=(ourbox.right-ourbox.left);
 			h_temp.bbox_height_pixel=(ourbox.bottom-ourbox.top);
@@ -915,7 +914,7 @@ void compute_highest_scoring_latents_hallucinate(PATTERN x,LABEL y,IMAGE_KERNEL_
 		gettimeofday(&end_time, NULL);
 		//double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
 //		printf("ESS (hallucinating) took %f \n", microseconds/1000);
-	}
+	}*/
 }
 
 void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cached_images,int* valid_kernels,STRUCTMODEL* sm,STRUCT_LEARN_PARM* sparm,double* max_score,LATENT_VAR* h_best,LABEL* y_best,LABEL y_curr)
@@ -939,7 +938,7 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 	}
 	else
 	{
-		struct timeval start_time;
+		/*struct timeval start_time;
 		struct timeval end_time;
 		gettimeofday(&start_time, NULL);
 		assert(y_curr.label==1);
@@ -1018,13 +1017,13 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 										 argxpos, argypos, argclst,
 											size_w, N, w,
 											1e9, solvedExactly, factor,
-                                            NUM_BBOXES_PER_IMAGE, cached_images[x.example_id][0].object_boxes);
+                                            NUM_BBOXES_PER_IMAGE, cached_images[x.example_id][0].object_boxes);*/
 
 		LATENT_BOX h_temp;
-		h_temp.position_x_pixel=ourbox.left; /* starting position of object */
-        h_temp.position_y_pixel=ourbox.top;
-        h_temp.bbox_width_pixel=(ourbox.right-ourbox.left);
-        h_temp.bbox_height_pixel=(ourbox.bottom-ourbox.top);
+		h_temp.position_x_pixel=1;
+        h_temp.position_y_pixel=1;
+        h_temp.bbox_width_pixel=x.width_pixel;
+        h_temp.bbox_height_pixel=x.height_pixel;
 
 		LATENT_VAR h_latent_var =  make_latent_var(sm);
 		for(int i =0; i< sm->num_kernels; i++)
@@ -1043,15 +1042,7 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 		{
 			free_latent_var(h_latent_var);
 		}
-
-		gettimeofday(&end_time, NULL);
-		//double microseconds = 1e6 * (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
-//		printf("ESS got score %f and we got score %f\n", ourbox.score, ourscore-sm->w[1]);
-        free(argxpos);		
-        free(argypos);
-		free(argclst);
-        free(w);
-	}
+    }
 }
 
 double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int impute) {
@@ -1206,7 +1197,7 @@ void write_struct_model(char *file, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm) {
   }
   
   for (i=1;i<sm->sizePsi+1;i++) {
-    fprintf(modelfl, "%d:%.16g\n", i, sm->w[i]);
+    fprintf(modelfl, "%d:%.16g\n", i, sm->w_curr.get_vec()[i]);
   }
   fclose(modelfl);
  
@@ -1228,10 +1219,10 @@ void read_struct_model(char *model_file, STRUCTMODEL * sm) {
 	exit(1);
   }
   
-  sm->w = (double*)calloc(sm->sizePsi + 1, sizeof(double));
+  double* w = sm->w_curr.get_vec();
   while (!feof(modelfl)) {
     fscanf(modelfl, "%d:%lf", &fnum, &fweight);
-		sm->w[fnum] = fweight;
+		w[fnum] = fweight;
   }
 
   fclose(modelfl);
@@ -1243,7 +1234,6 @@ void free_struct_model(STRUCTMODEL sm, STRUCT_LEARN_PARM *sparm) {
 */
   int k;
   
-  free(sm.w);
 
   for (k = 0; k < sm.num_kernels; ++k) {
     free(sm.kernel_names[k]);

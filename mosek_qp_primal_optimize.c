@@ -89,7 +89,7 @@ int mosek_qp_primal_optimize(double** cons, double* margins, double* objective,d
     
 
     if ( r==MSK_RES_OK )
-      {
+     {
         /*
          * The lower triangular part of the Q
          * matrix in the objective is specified.
@@ -108,7 +108,10 @@ int mosek_qp_primal_optimize(double** cons, double* margins, double* objective,d
         /* Input the Q for the objective. */
 
         r = MSK_putqobj(task,size_w,qsubi,qsubj,qval);
-      }
+        free(qsubi);
+        free(qsubj);
+        free(qval);
+    }
 
       MSK_putdouparam(task, MSK_DPAR_INTPNT_TOL_REL_GAP, 1E-14);
         
@@ -131,8 +134,7 @@ int mosek_qp_primal_optimize(double** cons, double* margins, double* objective,d
   MSK_deletetask(&task);
   
   MSK_deleteenv(&env);
-
-
+  
   return ( r );
 }
 /*int main()
