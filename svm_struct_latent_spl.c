@@ -1228,7 +1228,7 @@ int main(int argc, char* argv[]) {
   C = learn_parm.svm_c;
   MAX_ITER = learn_parm.maxiter;
 
-  init_struct_model(get_sample_size(trainfile), (sm.kernel_info_file), &sm);
+  init_struct_model(get_sample_size(trainfile), (sm.kernel_info_file), &sm, &sparm);
 
 
   /* read in examples */
@@ -1251,7 +1251,6 @@ int main(int argc, char* argv[]) {
     IMAGE_KERNEL_CACHE ** cached_images = init_cached_images(ex,&sm);
     m = sample.n;
 
-    sm.w_curr.initialize(sm.num_kernels, sm.kernel_sizes, NULL);
     w = sm.w_curr.get_vec();
     //HERE WOULD BE A GOOD PLACE TO INIT w_curr in SPARM.
 

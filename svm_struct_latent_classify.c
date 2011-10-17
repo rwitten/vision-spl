@@ -71,7 +71,7 @@ int main(int argc, char* argv[]) {
     flatent = fopen(latentfile,"w");
     fscore = fopen(scorefile, "w");
 
-    init_struct_model(get_sample_size(testfile), model.kernel_info_file, &model);
+    init_struct_model(get_sample_size(testfile), model.kernel_info_file, &model, &sparm);
 
     read_struct_model(modelfile, &model);
 

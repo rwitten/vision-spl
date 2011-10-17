@@ -37,7 +37,6 @@
 #define BASE_WIDTH 125
 #define X_STEP 50
 #define Y_STEP 50
-#define NUM_WINDOWS 1
 #define SCALE_FACTOR 1.5
 
 int pad_cmp(const void * a, const void * b) {
@@ -207,7 +206,7 @@ void load_meta_kernel(STRUCTMODEL* sm, int kernel_num)
 }
 
 //file format is "<number of kernels>\n<kernel 0 name>\n<kernel 0 size>\n<kernel 1 name>\n...."
-void read_kernel_info(char * kernel_info_file, STRUCTMODEL * sm) {
+void read_kernel_info(char * kernel_info_file, STRUCTMODEL * sm, STRUCT_LEARN_PARM* sparm) {
   int k;
   FILE * fp = fopen(kernel_info_file, "r");
   int firstline;
@@ -249,33 +248,21 @@ void read_kernel_info(char * kernel_info_file, STRUCTMODEL * sm) {
         sm->kernel_sizes[k]=1;
     }
   }
-
-  if(sm->is_meta)
-  {
-    sm->sizeSingleMetaPsi = 0;
-      for (k = 0; k < sm->num_kernels; ++k) {
-        sm->sizeSingleMetaPsi += sm->meta_kernel_sizes[k];
-      }
-      sm->sizeMetaPsi = (NUM_WINDOWS*sm->sizeSingleMetaPsi); //sizeMetaPsi is the number of coefficients that we have inherited.
-  }
-  sm->sizeSinglePsi = 1;
-  for (k = 0; k < sm->num_kernels; ++k) {
-    sm->sizeSinglePsi += sm->kernel_sizes[k];
-  }
-  sm->sizePsi = (NUM_WINDOWS*sm->sizeSinglePsi);
+  sm->w_curr.initialize(sm->num_kernels, sm->kernel_sizes, NULL, sparm->do_spm);
+  sm->sizePsi = sm->w_curr.total_length-1;
 
 	//sizePsi + 1 is the number of entries in w.  w[0] is 0 ( deliberately) because of indexing issues 
 	//with sparse vectors.  w[1] is a bias term - there should be no features that match it.
 }
 
-void init_struct_model(int sample_size, char * kernel_info_file, STRUCTMODEL *sm) {
+void init_struct_model(int sample_size, char * kernel_info_file, STRUCTMODEL *sm, STRUCT_LEARN_PARM* sparm) {
 /*
   Initialize parameters in STRUCTMODEL sm. Set the dimension 
   of the feature space sm->sizePsi. Can also initialize your own
   variables in sm here. 
 */
 
-  read_kernel_info(kernel_info_file, sm);
+  read_kernel_info(kernel_info_file, sm, sparm);
 
   sm->n = sample_size;
 }
@@ -628,43 +615,31 @@ void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, LATENT_BOX ou
 	}
 }*/
 
-SVECTOR* single_psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm,int cutoff) {
+void single_psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm,int box_num, kernel_obj& results) {
 /*
   Creates the feature vector \Psi(x,y,h) and return a pointer to 
   sparse vector SVECTOR in SVM^light format. The dimension of the 
   feature vector returned has to agree with the dimension in sm->sizePsi. 
 */
   assert(sparm->n_classes == 2); //if this assertion fails other assumptions in the code are probably jacked up too.
+  assert(y.label); 
 
   try_cache_image(x, cached_images, sm);
-
-  SVECTOR * fvec = NULL;
   //binary labelling for now - 1 means there's a car, 0 means there's no car
-  if (y.label) {
-    int num_words = 0;
-    WORD * words = (WORD *)calloc(sm->sizePsi + 1, sizeof(WORD)); 
-    if(cutoff==1) //if we're the first kernel
-    {
-        words[num_words].wnum = 1;
-        words[num_words].weight = 1.0;
-        num_words=num_words+1;
-    }
-    int k;
-    int start_ind = cutoff;
-    for (k = 0; k < sm->num_kernels; ++k) {
-      if ((!valid_kernels) || valid_kernels[k]) {
-        fill_max_pool(x, h, k, cached_images, words, start_ind, &num_words, sm);
+  for(int kernel_ind = 0 ; kernel_ind < sm->num_kernels;  kernel_ind++)
+  {
+      POINT_AND_DESCRIPTOR * points_and_descriptors = cached_images[x.example_id][kernel_ind].points_and_descriptors;
+      int num_descriptors = cached_images[x.example_id][kernel_ind].num_points;
+      for(int index = 0 ; index < num_descriptors  ; index++)
+      {
+        if( (points_and_descriptors[index].y > h.boxes[kernel_ind].position_y_pixel) && 
+            (points_and_descriptors[index].x > h.boxes[kernel_ind].position_x_pixel) &&
+            (points_and_descriptors[index].y < h.boxes[kernel_ind].position_y_pixel+h.boxes[kernel_ind].bbox_height_pixel) &&
+            (points_and_descriptors[index].x < h.boxes[kernel_ind].position_x_pixel+h.boxes[kernel_ind].bbox_width_pixel) )
+        {
+            results.set(kernel_ind, points_and_descriptors[index].descriptor-1, box_num, 1/W_SCALE);
+        }
       }
-      start_ind += sm->kernel_sizes[k];
-    }
-		words[num_words].wnum = 0;
-    words = (WORD *)realloc(words, (num_words + 1) * sizeof(WORD));
-		fvec = create_svector_shallow(words, strdup(""), 1.0);
-    return fvec;
-  } else {
-    WORD * words = (WORD *)calloc(1, sizeof(WORD));
-    fvec = create_svector_shallow(words, strdup(""), 1.0);
-    return fvec;
   }
 }
 
@@ -682,14 +657,8 @@ LATENT_VAR choose_subset(LATENT_VAR h, int subset,  STRUCT_LEARN_PARM *sparm, ST
 			}
 			else 
 			{
-				LATENT_BOX h_temp;
-				h_temp.position_x_pixel = 0;
-				h_temp.position_y_pixel = 0;
-				h_temp.bbox_width_pixel = 0;
-				h_temp.bbox_height_pixel = 0;
-				h_out.boxes[i] = h_temp;
-				continue;
-			}
+			   assert(0);	
+ 			}
 		}
 		//DOING SPM
 		h_out.boxes[i] = h.boxes[i];
@@ -742,20 +711,17 @@ SVECTOR* psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cached_imag
 	SVECTOR* fvec;
   //binary labelling for now - 1 means there's a car, 0 means there's no car
   if (y.label) {
-		LATENT_VAR subset_box = choose_subset(h,0,sparm,sm);
-		fvec = single_psi(x,y,subset_box,cached_images,valid_kernels,sm,sparm,1);
-		free_latent_var(subset_box);
-		for(int subset = 1; subset<NUM_WINDOWS; subset++)
+        kernel_obj result;
+        result.initialize(sm->num_kernels, sm->kernel_sizes, NULL, sparm->do_spm);
+		for(int subset = 0; ((subset<5) && sparm->do_spm) || (subset<1); subset++)
 		{
-		    subset_box = choose_subset(h,subset,sparm,sm);
-			SVECTOR* addl_part = single_psi(x,y,subset_box,cached_images,valid_kernels,sm,sparm,1+sm->sizeSinglePsi*subset);
+		    LATENT_VAR subset_box = choose_subset(h,subset,sparm,sm);
+			single_psi(x,y,subset_box,cached_images,valid_kernels,sm,sparm,subset,result);
 			free_latent_var(subset_box);
-			SVECTOR* newfvec = add_ss(fvec,addl_part);
-			free_svector(addl_part);
-			free_svector(fvec);
-			fvec =newfvec;
 		}
-    return fvec;
+        fvec = create_svector_n(result.get_vec(),result.total_length-1,"",1 );
+        result.cleanup();
+        return fvec;
   } else {
     WORD * words = (WORD *)calloc(1, sizeof(WORD));
     fvec = create_svector_shallow(words, strdup(""), 1.0);
