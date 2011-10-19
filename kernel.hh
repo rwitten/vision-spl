@@ -63,37 +63,29 @@ class kernel_obj {
             kernel_lengths=NULL;
             kernel_weights=NULL;
         }
-
-        void set(int kernel_num, int index, int box_choice, double weight)
+      
+        int  get_index(int kernel_num, int index, int box_choice, bool in_bb)
         {
-            if(! is_spm)
-            {
-                assert((kernel_starts[kernel_num]+index) <= kernel_ends[kernel_num]);
-                kernel_weights[kernel_starts[kernel_num]+index] = weight;
-            }
+            int bb_multiplier = in_bb ? 0 : 1;
+            int point_index;
+            if (! is_spm) 
+                point_index = kernel_starts[kernel_num]+index + (kernel_lengths[kernel_num]*bb_multiplier);
             else
-            {
-                assert(index>=0 && index < kernel_lengths[kernel_num]);
-                int point = kernel_starts[kernel_num] + index + (box_choice*(kernel_lengths[kernel_num]));
-                assert(point <= kernel_ends[kernel_num]);
-                kernel_weights[point] = weight;
-            }
+                point_index = kernel_starts[kernel_num] + index + (box_choice*(kernel_lengths[kernel_num])) + 
+                    5*(kernel_lengths[kernel_num]*bb_multiplier);
+
+            return point_index;
+           
         }
 
-        double  get(int kernel_num, int index, int box_choice)
+        void set(int kernel_num, int index, int box_choice, bool in_bb, double weight)
         {
-            if(! is_spm)
-            {
-                assert((kernel_starts[kernel_num]+index) <= kernel_ends[kernel_num]);
-                return  kernel_weights[kernel_starts[kernel_num]+index];
-            }
-            else
-            {
-                assert(index>=0 && index < kernel_lengths[kernel_num]);
-                int point = kernel_starts[kernel_num] + index + (box_choice*(kernel_lengths[kernel_num]));
-                assert(point <= kernel_ends[kernel_num]);
-                return kernel_weights[point];
-            }
+            kernel_weights[get_index(kernel_num, index, box_choice, in_bb)] = weight;
+        }
+
+        double  get(int kernel_num, int index, int box_choice, bool in_bb)
+        {
+            return kernel_weights[get_index(kernel_num, index, box_choice, in_bb)];
         }
 
         //YOU DON'T OWN THIS SO DON'T FREE IT.

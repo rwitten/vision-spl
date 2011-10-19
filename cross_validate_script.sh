@@ -15,7 +15,7 @@ do
 	do
 		for foldnum in 1 2 3 
 		do
-			for C in 5000000 10000000 20000000 50000000
+			for C in 1000000 10000000 100000000 500000000 1000000000
 			do
 				for l in 0 1
 				do
@@ -25,7 +25,7 @@ do
 						do
 							for prox_weight in .1
                             do
-                                for epsilon in .001 
+                                for epsilon in .01
                                 do
                                     basename=`./name.sh ${algorithm} ${classfold} ${C} ${foldnum} ${randomness} ${h} ${l} ${prox_weight} ${epsilon} overall`
                                     filestub=`./name.sh ${algorithm} ${classfold} ${C} ${foldnum} ${randomness} ${h} ${l} ${prox_weight} ${epsilon}`
