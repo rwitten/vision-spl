@@ -248,9 +248,9 @@ void read_kernel_info(char * kernel_info_file, STRUCTMODEL * sm, STRUCT_LEARN_PA
         sm->kernel_sizes[k]=1;
     }
   }
-  sm->w_curr.initialize(sm->num_kernels, sm->kernel_sizes, NULL, sparm->do_spm);
+  sm->w_curr.initialize(sm->num_kernels, sm->kernel_sizes, sparm->n_classes, NULL, sparm->do_spm);
   sm->sizePsi = sm->w_curr.total_length-1;
-
+  sm->section_length = sm->w_curr.section_length;
 	//sizePsi + 1 is the number of entries in w.  w[0] is 0 ( deliberately) because of indexing issues 
 	//with sparse vectors.  w[1] is a bias term - there should be no features that match it.
 }
@@ -639,11 +639,9 @@ void single_psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cached_i
   sparse vector SVECTOR in SVM^light format. The dimension of the 
   feature vector returned has to agree with the dimension in sm->sizePsi. 
 */
-  assert(sparm->n_classes == 2); //if this assertion fails other assumptions in the code are probably jacked up too.
-  assert(y.label); 
 
   try_cache_image(x, cached_images, sm);
-  //binary labelling for now - 1 means there's a car, 0 means there's no car
+  
   for(int kernel_ind = 0 ; kernel_ind < sm->num_kernels;  kernel_ind++)
   {
       POINT_AND_DESCRIPTOR * points_and_descriptors = cached_images[x.example_id][kernel_ind].points_and_descriptors;
@@ -658,7 +656,7 @@ void single_psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cached_i
                 break;
 //            assert(points_and_descriptors[index].y >= h.boxes[kernel_ind].position_y_pixel);
 //            assert(points_and_descriptors[index].y <= h.boxes[kernel_ind].position_y_pixel+h.boxes[kernel_ind].bbox_height_pixel);
-            results.set(kernel_ind, points_and_descriptors[index].descriptor-1, box_num,in_bb, 1/W_SCALE );
+            results.set(kernel_ind, points_and_descriptors[index].descriptor-1, box_num, in_bb, y.label, 1/W_SCALE );
         }
       }
   }
@@ -744,41 +742,38 @@ SVECTOR* psi_helper(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cach
   sparse vector SVECTOR in SVM^light format. The dimension of the 
   feature vector returned has to agree with the dimension in sm->sizePsi. 
 */
-  assert(sparm->n_classes == 2); //if this assertion fails other assumptions in the code are probably jacked up too.
 
   try_cache_image(x, cached_images, sm);
   SVECTOR* fvec;
   //binary labelling for now - 1 means there's a car, 0 means there's no car
-  if (y.label) {
 		//struct timeval start_time;
 		//struct timeval end_time;
 //		gettimeofday(&start_time, NULL);
         LATENT_VAR whole_image = make_lv_wholeimage(x,sm);
         kernel_obj result;
-        result.initialize(sm->num_kernels, sm->kernel_sizes, NULL, sparm->do_spm);
+        result.initialize(sm->num_kernels, sm->kernel_sizes, 1, NULL, sparm->do_spm); //Create a kernel with just one section, and then shift everything over when you turn it into an SVECTOR with multiple sections
 		for(int subset = 0; ((subset<5) && sparm->do_spm) || (subset<1); subset++)
 		{
-		    LATENT_VAR subset_box = choose_subset(h,subset,sparm,sm);
+			LATENT_VAR subset_box = choose_subset(h,subset,sparm,sm);
 			single_psi(x,y,subset_box,cached_images,valid_kernels,sm,sparm,subset,true,result);
 			free_latent_var(subset_box);
-            if(do_whole_image)
-            {
-                LATENT_VAR subset_box_whole_image = choose_subset(whole_image,subset,sparm,sm);
-                single_psi(x,y,subset_box_whole_image,cached_images,valid_kernels,sm,sparm,subset,false,result);
-                free_latent_var(subset_box_whole_image);
-            }
+       		     	if(do_whole_image)
+            		{
+                		LATENT_VAR subset_box_whole_image = choose_subset(whole_image,subset,sparm,sm);
+                		single_psi(x,y,subset_box_whole_image,cached_images,valid_kernels,sm,sparm,subset,false,result);
+                		free_latent_var(subset_box_whole_image);
+            		}
 		}
-        fvec = create_svector_n(result.get_vec(),result.total_length-1,"",1 );
+        fvec = create_svector_n(result.get_vec(),result.total_length - 1 + y.label * sm->section_length,"",1 );
+	WORD * word;
+	for (word = fvec->words; word->wnum != 0; ++word) {
+		word->wnum += y.label * sm->section_length;
+	}
         result.cleanup();
         free_latent_var(whole_image);
 		//gettimeofday(&end_time, NULL);
         //printf("Psi took %f micros\n", time_delta_micros(start_time, end_time));
         return fvec;
-  } else {
-    WORD * words = (WORD *)calloc(1, sizeof(WORD));
-    fvec = create_svector_shallow(words, strdup(""), 1.0);
-    return fvec;
-  }
 }
 
 double compute_w_T_psi_helper(PATTERN *x, LATENT_VAR h, int classi, IMAGE_KERNEL_CACHE ** cached_images, int * valid_kernels, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, bool do_whole_image) {
@@ -948,23 +943,6 @@ void compute_highest_scoring_latents_hallucinate(PATTERN x,LABEL y,IMAGE_KERNEL_
 void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cached_images,int* valid_kernels,STRUCTMODEL* sm,STRUCT_LEARN_PARM* sparm,double* max_score,LATENT_VAR* h_best,LABEL* y_best,LABEL y_curr)
 {
   double loss = (y_curr.label == y.label) ? 0 : 1;
-	if(y_curr.label==0)
-	{
-		if(loss>*max_score)
-		{
-			*max_score = loss;
-			*y_best = y_curr;
-			for(int i = 0 ; i < sm->num_kernels; i++)
-			{
-				h_best->boxes[i].position_x_pixel=0;
-				h_best->boxes[i].position_y_pixel=0;
-				h_best->boxes[i].bbox_width_pixel=-1;
-				h_best->boxes[i].bbox_height_pixel=-1;
-			}
-		}
-	}
-	else
-	{
         LATENT_VAR this_best =  make_latent_var(sm);
         double this_best_score = -DBL_MAX;
         for(int i = 0 ; i < NUM_BBOXES_PER_IMAGE; i ++)
@@ -1001,7 +979,6 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
         {
             free_latent_var(this_best);
         }
-    }
 }
 
 double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int impute) {
@@ -1015,18 +992,12 @@ double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_
 	int cur_class;
 	double max_score;
 	max_score = -DBL_MAX;
-
-	
 	LABEL y_curr;
-	y_curr.label=1;
+
 	for(cur_class = 0; cur_class<sparm->n_classes; cur_class++)
 	{
-		
-		if(cur_class>0)
-		{
-    	   	y_curr.label=cur_class;
-			compute_highest_scoring_latents(x,y_curr,cached_images,NULL,sm,sparm,&max_score,h,y,y_curr);
-		}
+    	   	y_curr.label = cur_class;
+		compute_highest_scoring_latents(x,y_curr,cached_images,NULL,sm,sparm,&max_score,h,y,y_curr);
 	}
 	return max_score;
 }
@@ -1093,16 +1064,6 @@ LATENT_VAR infer_latent_variables(PATTERN x, LABEL y, IMAGE_KERNEL_CACHE ** cach
   //printf("width = %d, height = %d\n", x.width, x.height);
   //time_t start_time = time(NULL);
   LATENT_VAR h = make_latent_var(sm);
-  if (y.label == 0) {
-		for(int i = 0 ; i < sm->num_kernels ; i++)
-		{
-			h.boxes[i].position_x_pixel = 0;
-			h.boxes[i].position_y_pixel = 0;
-			h.boxes[i].bbox_width_pixel = -1;
-			h.boxes[i].bbox_height_pixel = -1;
-		}
-		return h;
-	}
 	/*else {
 		assert(y.label==1);
 		h.position_x_pixel = x.gt_x_pixel;
@@ -1245,7 +1206,7 @@ void parse_struct_parameters(STRUCT_LEARN_PARM *sparm) {
   
   /* set default */
   sparm->rng_seed = 0;
-  sparm->n_classes = 2;
+  sparm->n_classes = -1;
   sparm->pos_neg_cost_ratio = 1.0;
   sparm->C = 10000;
   sparm->prox_weight  = 0 ;
@@ -1263,6 +1224,7 @@ void parse_struct_parameters(STRUCT_LEARN_PARM *sparm) {
     default: printf("\nUnrecognized option %s!\n\n", sparm->custom_argv[i]); exit(0);
     }
   }
+	assert(sparm->n_classes > 0);
 }
 
 void copy_label(LABEL l1, LABEL *l2)

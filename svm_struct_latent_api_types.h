@@ -97,6 +97,7 @@ typedef struct structmodel {
   kernel_obj w_curr;
   MODEL  *svm_model;  /* the learned SVM model */
   long   sizePsi;     /* sizePsi+1 is length of w. */
+  long section_length;
   char kernel_info_file[1024]; //where the config is at
  
   int is_meta;
