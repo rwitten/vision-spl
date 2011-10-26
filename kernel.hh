@@ -42,7 +42,6 @@ class kernel_obj {
                 total_length += kernel_full_lengths[i];
             }
 
-                /*THIS ONLY WORKS IF TOTAL_LENGTH ACCURATELY REFLECTS THE LENGTH OF A SECTION (plus the extra 0)!!!*/
                 num_sections = init_num_sections;
                 section_length = total_length - 1;
                 total_length = num_sections * section_length + 1;
@@ -51,9 +50,10 @@ class kernel_obj {
                 kernel_weights= init_kernel_weights;
             else
             {
-                kernel_weights = (double*)malloc(multiplier*total_length* sizeof(double));
-                for(int i = 0 ; i<multiplier*total_length;i++)
+                kernel_weights = (double*)malloc(total_length * sizeof(double));
+                for(int i = 0 ; total_length; i++) {
                     kernel_weights[i]=0;
+		}
             }
 
         }
