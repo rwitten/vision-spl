@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <assert.h>
+#include "svm_light/svm_common.h"
 
 class kernel_obj {
     
@@ -105,6 +106,17 @@ class kernel_obj {
             return kernel_weights;
         }
 
+	SVECTOR * get_svec(int section_num)
+	{
+		//The section starts at section_num * section_length + 1, but we need to include the extra 0 at the beginnning
+		SVECTOR * fvec = create_svector_n(&(kernel_weights[section_num * section_length]), section_length, "", 1.0);
+		WORD * word = fvec->words;
+		while (word->wnum) {
+			word->wnum += section_num * section_length;
+			++word;
+		}
+		return fvec;
+	}
 
     private:
 };

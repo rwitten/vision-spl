@@ -770,7 +770,7 @@ SVECTOR* psi_helper(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cach
                 		free_latent_var(subset_box_whole_image);
             		}
 		}
-        fvec = create_svector_n(result.get_vec(),result.total_length - 1,"",1);
+        fvec = result.get_svec(y.label);
         result.cleanup();
         free_latent_var(whole_image);
 		//gettimeofday(&end_time, NULL);
