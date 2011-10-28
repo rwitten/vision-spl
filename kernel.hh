@@ -46,12 +46,12 @@ class kernel_obj {
                 section_length = total_length - 1;
                 total_length = num_sections * section_length + 1;
 
-            if(init_kernel_weights)
+            if(init_kernel_weights) {
+		assert(0);
                 kernel_weights= init_kernel_weights;
-            else
-            {
+	    } else {
                 kernel_weights = (double*)malloc(total_length * sizeof(double));
-                for(int i = 0 ; total_length; i++) {
+                for(int i = 0 ; i < total_length; i++) {
                     kernel_weights[i]=0;
 		}
             }

@@ -1228,7 +1228,7 @@ int main(int argc, char* argv[]) {
   C = learn_parm.svm_c;
   MAX_ITER = learn_parm.maxiter;
 
-  init_struct_model(get_sample_size(trainfile), (sm.kernel_info_file), &sm, &sparm);
+  init_struct_model((sm.kernel_info_file), &sm, &sparm);
 
 
   /* read in examples */

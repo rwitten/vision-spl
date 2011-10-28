@@ -113,6 +113,7 @@ typedef struct structmodel {
   int num_kernels;
   int * kernel_sizes;
   char ** kernel_names;
+  long num_distinct_images;
 } STRUCTMODEL;
 
 

@@ -60,7 +60,7 @@ int get_sample_size(char * file) {
 }
 
 IMAGE_KERNEL_CACHE ** init_cached_images(EXAMPLE* ex,STRUCTMODEL * sm) {
-  IMAGE_KERNEL_CACHE** cached_images = (IMAGE_KERNEL_CACHE **)calloc(sm->n, sizeof(IMAGE_KERNEL_CACHE *));
+  IMAGE_KERNEL_CACHE** cached_images = (IMAGE_KERNEL_CACHE **)calloc(sm->num_distinct_images, sizeof(IMAGE_KERNEL_CACHE *));
 	for(int i = 0; i < sm->n ; i++)
 		try_cache_image(ex[i].x, cached_images, sm);
 	return cached_images;
@@ -68,7 +68,7 @@ IMAGE_KERNEL_CACHE ** init_cached_images(EXAMPLE* ex,STRUCTMODEL * sm) {
 
 void free_cached_images(IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL * sm) {
   int i, k;
-  for (i = 0; i < sm->n; ++i) {
+  for (i = 0; i < sm->num_distinct_images; ++i) {
     if (cached_images[i] != NULL) {
       for (k = 0; k < sm->num_kernels; ++k) {
 	free(cached_images[i][k].points_and_descriptors);
@@ -100,6 +100,7 @@ SAMPLE read_struct_examples(char *file, STRUCTMODEL * sm, STRUCT_LEARN_PARM *spa
   }
   fgets(line, MAX_INPUT_LINE_LENGTH, fp);
   num_examples = atoi(line);
+  sm->num_distinct_images = num_examples;
   sample.examples = (EXAMPLE*)malloc(sizeof(EXAMPLE)*num_examples*sparm->n_classes);
   int example_ind = 0;
   for (i=0;(!feof(fp))&&(i<num_examples);i++) {
@@ -164,6 +165,7 @@ SAMPLE read_struct_examples(char *file, STRUCTMODEL * sm, STRUCT_LEARN_PARM *spa
   }
   sample.n = example_ind;
 	sample.examples = (EXAMPLE *)realloc(sample.examples, sample.n * sizeof(EXAMPLE));
+	sm->n = sample.n;
   fclose(fp);  
   return(sample); 
 }
@@ -245,7 +247,7 @@ void read_kernel_info(char * kernel_info_file, STRUCTMODEL * sm, STRUCT_LEARN_PA
 	//with sparse vectors.  w[1] is a bias term - there should be no features that match it.
 }
 
-void init_struct_model(int sample_size, char * kernel_info_file, STRUCTMODEL *sm, STRUCT_LEARN_PARM* sparm) {
+void init_struct_model(char * kernel_info_file, STRUCTMODEL *sm, STRUCT_LEARN_PARM* sparm) {
 /*
   Initialize parameters in STRUCTMODEL sm. Set the dimension 
   of the feature space sm->sizePsi. Can also initialize your own
@@ -253,8 +255,6 @@ void init_struct_model(int sample_size, char * kernel_info_file, STRUCTMODEL *sm
 */
 
   read_kernel_info(kernel_info_file, sm, sparm);
-
-  sm->n = sample_size;
 }
 
 void box_to_latent_box(Box * box, LATENT_BOX * latent_box) {
@@ -280,7 +280,7 @@ void init_latent_variables(SAMPLE *sample, IMAGE_KERNEL_CACHE ** cached_images, 
 		sample->examples[i].h = make_latent_var(sm);
 		int k;
 		for (k = 0; k < sm->num_kernels; ++k) {
-			box_to_latent_box(&(cached_images[sample->examples[i].x.example_id][0].object_boxes[init_bbox_index]), &(sample->examples[i].h.boxes[k]));
+			box_to_latent_box(&(cached_images[sample->examples[i].x.image_id][0].object_boxes[init_bbox_index]), &(sample->examples[i].h.boxes[k]));
 		}
 	}
 
@@ -479,10 +479,10 @@ void fill_image_kernel_cache(PATTERN x, int kernel_ind, IMAGE_KERNEL_CACHE * ikc
 
 void try_cache_image(PATTERN x, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL * sm) {
   int k;
-  if (cached_images[x.example_id] == NULL) {
+  if (cached_images[x.image_id] == NULL) {
     printf("$"); fflush(stdout);
-    cached_images[x.example_id] = (IMAGE_KERNEL_CACHE *)malloc(sm->num_kernels * sizeof(IMAGE_KERNEL_CACHE));
-    IMAGE_KERNEL_CACHE * kernel_caches_for_image = cached_images[x.example_id];
+    cached_images[x.image_id] = (IMAGE_KERNEL_CACHE *)malloc(sm->num_kernels * sizeof(IMAGE_KERNEL_CACHE));
+    IMAGE_KERNEL_CACHE * kernel_caches_for_image = cached_images[x.image_id];
     for (k = 0; k < sm->num_kernels; ++k) {
       if(k==0)
       {
@@ -522,8 +522,8 @@ int min(int a, int b) {
 }
 
 void fill_max_pool(PATTERN x, LATENT_VAR h, int kernel_ind, IMAGE_KERNEL_CACHE ** cached_images, WORD* words, int descriptor_offset, int * num_words, STRUCTMODEL * sm) {
-    POINT_AND_DESCRIPTOR * points_and_descriptors = cached_images[x.example_id][kernel_ind].points_and_descriptors;
-	int num_descriptors = cached_images[x.example_id][kernel_ind].num_points;
+    POINT_AND_DESCRIPTOR * points_and_descriptors = cached_images[x.image_id][kernel_ind].points_and_descriptors;
+	int num_descriptors = cached_images[x.image_id][kernel_ind].num_points;
 	
     do_max_pooling(points_and_descriptors, h.boxes[kernel_ind], num_descriptors, kernel_ind, words, descriptor_offset, num_words, sm); 
 }
@@ -650,8 +650,8 @@ void single_psi(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cached_i
   
   for(int kernel_ind = 0 ; kernel_ind < sm->num_kernels;  kernel_ind++)
   {
-      POINT_AND_DESCRIPTOR * points_and_descriptors = cached_images[x.example_id][kernel_ind].points_and_descriptors;
-      int num_descriptors = cached_images[x.example_id][kernel_ind].num_points;
+      POINT_AND_DESCRIPTOR * points_and_descriptors = cached_images[x.image_id][kernel_ind].points_and_descriptors;
+      int num_descriptors = cached_images[x.image_id][kernel_ind].num_points;
       int startpoint = binsearch(points_and_descriptors, num_descriptors,h.boxes[kernel_ind].position_y_pixel);
       for(int index = startpoint ; index < num_descriptors  ; index++)
       {
@@ -757,7 +757,7 @@ SVECTOR* psi_helper(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cach
 //		gettimeofday(&start_time, NULL);
         LATENT_VAR whole_image = make_lv_wholeimage(x,sm);
         kernel_obj result;
-        result.initialize(sm->num_kernels, sm->kernel_sizes, 1, NULL, sparm->do_spm); //Create a kernel with just one section, and then shift everything over when you turn it into an SVECTOR with multiple sections
+        result.initialize(sm->num_kernels, sm->kernel_sizes, sparm->n_classes, NULL, sparm->do_spm);
 		for(int subset = 0; ((subset<5) && sparm->do_spm) || (subset<1); subset++)
 		{
 			LATENT_VAR subset_box = choose_subset(h,subset,sparm,sm);
@@ -770,11 +770,7 @@ SVECTOR* psi_helper(PATTERN x, LABEL y, LATENT_VAR h, IMAGE_KERNEL_CACHE ** cach
                 		free_latent_var(subset_box_whole_image);
             		}
 		}
-        fvec = create_svector_n(result.get_vec(),result.total_length - 1 + y.label * sm->section_length,"",1 );
-	WORD * word;
-	for (word = fvec->words; word->wnum != 0; ++word) {
-		word->wnum += y.label * sm->section_length;
-	}
+        fvec = create_svector_n(result.get_vec(),result.total_length - 1,"",1);
         result.cleanup();
         free_latent_var(whole_image);
 		//gettimeofday(&end_time, NULL);
@@ -955,7 +951,7 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
         double this_best_score = -DBL_MAX;
         for(int i = 0 ; i < NUM_BBOXES_PER_IMAGE; i ++)
         {
-            Box box = cached_images[x.example_id][0].object_boxes[i];
+            Box box = cached_images[x.image_id][0].object_boxes[i];
             LATENT_BOX h_temp_box;
 	    box_to_latent_box(&box, &h_temp_box);
             LATENT_VAR h_temp = make_latent_var(sm);
