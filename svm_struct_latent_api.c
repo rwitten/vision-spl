@@ -946,10 +946,11 @@ void compute_highest_scoring_latents_hallucinate(PATTERN x,LABEL y,IMAGE_KERNEL_
 	}*/
 }
 
-void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cached_images,int* valid_kernels,STRUCTMODEL* sm,STRUCT_LEARN_PARM* sparm,double* max_score,LATENT_VAR* h_best,LABEL* y_best,LABEL y_curr)
+void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cached_images,int* valid_kernels,STRUCTMODEL* sm,STRUCT_LEARN_PARM* sparm,double* max_score,LATENT_VAR* h_best,LABEL* y_best,LABEL y_curr, bool during_learning)
 {
-	assert(!x.also_correct[y_curr.label]); //either y_curr is the "official" correct class or it's incorrect
+	if (during_learning) assert(!x.also_correct[y_curr.label]); //either y_curr is the "official" correct class or it's incorrect
 	double loss = (y_curr.label == y.label) ? 0 : 1;
+	if (!during_learning) assert(loss == 0);
         LATENT_VAR this_best =  make_latent_var(sm);
         double this_best_score = -DBL_MAX;
         for(int i = 0 ; i < NUM_BBOXES_PER_IMAGE; i ++)
@@ -985,6 +986,14 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
         }
 }
 
+double get_classifier_score(PATTERN x, LABEL y_guess, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL * sm, STRUCT_LEARN_PARM * sparm) {
+	double max_score = -DBL_MAX;
+	LATENT_VAR h;
+	LABEL y;
+	compute_highest_scoring_latents(x, y_guess, cached_images, NULL, sm, sparm, &max_score, &h, &y, y_guess, false);
+	return max_score;
+}
+
 double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm, int impute) {
 /*
   Makes prediction with input pattern x with weight vector in sm->w,
@@ -1001,7 +1010,7 @@ double classify_struct_example(PATTERN x, LABEL *y, LATENT_VAR *h, IMAGE_KERNEL_
 	for(cur_class = 0; cur_class<sparm->n_classes; cur_class++)
 	{
     	   	y_curr.label = cur_class;
-		compute_highest_scoring_latents(x,y_curr,cached_images,NULL,sm,sparm,&max_score,h,y,y_curr);
+		compute_highest_scoring_latents(x,y_curr,cached_images,NULL,sm,sparm,&max_score,h,y,y_curr,false);
 	}
 	return max_score;
 }
@@ -1048,7 +1057,7 @@ void find_most_violated_constraint_marginrescaling(PATTERN x, LATENT_VAR hstar, 
 					if(sparm->do_hallucinate)
 						compute_highest_scoring_latents_hallucinate(x,y,cached_images,valid_kernels,sm,sparm,&max_score,hbar,ybar,y_curr);
 					else
-						compute_highest_scoring_latents(x,y,cached_images,valid_kernels,sm,sparm,&max_score,hbar,ybar,y_curr);
+						compute_highest_scoring_latents(x,y,cached_images,valid_kernels,sm,sparm,&max_score,hbar,ybar,y_curr,true);
 				}
 			}
 		}
@@ -1082,7 +1091,7 @@ LATENT_VAR infer_latent_variables(PATTERN x, LABEL y, IMAGE_KERNEL_CACHE ** cach
 	double MAX_SCORE_ATTAINED = -DBL_MAX;
 	LABEL garbage; //will get set to whatever the variable y holds.
 	garbage.label=0;
-	compute_highest_scoring_latents(x,y,cached_images,NULL,sm,sparm,&MAX_SCORE_ATTAINED,&h,&garbage, y);
+	compute_highest_scoring_latents(x,y,cached_images,NULL,sm,sparm,&MAX_SCORE_ATTAINED,&h,&garbage, y, true);
 
 	assert(garbage.label==y.label);
 

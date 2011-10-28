@@ -32,6 +32,26 @@ double get_hinge_l_from_pos_score(double pos_score, LABEL gt)
 	return max(1 - 2*((double)gt.label-.5)*pos_score,0);
 }
 
+void test_all_binary_classifiers(PATTERN x, LABEL y_correct, IMAGE_KERNEL_CACHE ** cached_images, double * scores, int * correctness, STRUCTMODEL * sm, STRUCT_LEARN_PARM * sparm) {
+	int j;
+	LABEL y;
+	double best_incorrect_score = -DBL_MAX;
+	for (j = 0; j < sparm->n_classes; ++j) {
+		y.label = j;
+		scores[j] = get_classifier_score(x, y, cached_images, sm, sparm);
+		if (y_correct.label != j && !x.also_correct[j] && scores[j] > best_incorrect_score) {
+			best_incorrect_score = scores[j];
+		}
+	}
+	for (j = 0; j < sparm->n_classes; ++j) {
+		if ((y_correct.label == j || x.also_correct[j]) && scores[j] > best_incorrect_score) {
+			correctness[j] = 1;
+		} else {
+			correctness[j] = 0;
+		}
+	}
+}
+
 double regularizaton_cost(double* w, long num_entries)
 {
     long k;
