@@ -5,6 +5,7 @@
 #include "svm_struct_latent_api_types.h"
 #include <float.h>
 
+void box_to_latent_box(Box * box, LATENT_BOX * latent_box);
 void print_lv(LATENT_VAR h);
 void cut_off_last_column(IMAGE_KERNEL_CACHE * ikc);
 int pad_cmp(const void * a, const void * b);
@@ -15,7 +16,7 @@ SAMPLE read_struct_examples(char *file, STRUCTMODEL * sm, STRUCT_LEARN_PARM *spa
 int get_num_bbox_positions(int image_length, int bbox_length, int bbox_step_length);
 void read_kernel_info(char * kernel_info_file, STRUCTMODEL * sm, STRUCT_LEARN_PARM* sparm);
 void init_struct_model(int sample_size, char * kernel_info_file, STRUCTMODEL *sm, STRUCT_LEARN_PARM* sparm);
-void init_latent_variables(SAMPLE *sample, LEARN_PARM *lparm, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
+void init_latent_variables(SAMPLE *sample, IMAGE_KERNEL_CACHE ** cached_images, LEARN_PARM *lparm, STRUCTMODEL *sm, STRUCT_LEARN_PARM *sparm);
 int in_bounding_box(int pixel_x, int pixel_y, LATENT_VAR h, STRUCTMODEL * sm);
 int bbox_coord_to_pixel_coord(int bbox_coord, int bbox_step);
 int pixel_coord_to_descriptor_coord(int pixel_coord, int descriptor_tl_offset, int descriptor_spacing);

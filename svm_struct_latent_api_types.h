@@ -28,6 +28,7 @@ typedef struct pattern {
   */
   int example_id;
   char image_path[1000];
+  int image_id; //makes it easier to avoid looking at duplicates
   double example_cost;
   int width_pixel;
   int height_pixel;
@@ -35,11 +36,11 @@ typedef struct pattern {
   int * descriptor_num_acrosses;
   int * descriptor_top_left_xs;
   int * descriptor_top_left_ys;
-
-	int gt_width_pixel;
-	int gt_height_pixel;
-	int gt_x_pixel;
-	int gt_y_pixel;
+	//int gt_width_pixel;
+	//int gt_height_pixel;
+	//int gt_x_pixel;
+	//int gt_y_pixel;
+	int * also_correct; //contains 1 and indices of classes OTHER THAN THE "OFFICIAL" CORRECT CLASS that are also correct (marginrescaling won't work if we ignore the "official" correct class)
 } PATTERN;
 
 typedef struct point_and_descriptor {

@@ -1263,7 +1263,7 @@ int main(int argc, char* argv[]) {
   printf("sm.sizePsi: %ld\n", sm.sizePsi); fflush(stdout);
   
   /* impute latent variable for first iteration */
-  init_latent_variables(&sample,&learn_parm,&sm,&sparm);
+  init_latent_variables(&sample, cached_images, &learn_parm, &sm, &sparm);
 
   int k;
 
