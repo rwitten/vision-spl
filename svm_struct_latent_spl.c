@@ -1228,7 +1228,7 @@ int main(int argc, char* argv[]) {
   C = learn_parm.svm_c;
   MAX_ITER = learn_parm.maxiter;
 
-  init_struct_model(get_sample_size(trainfile), (sm.kernel_info_file), &sm, &sparm);
+  init_struct_model((sm.kernel_info_file), &sm, &sparm);
 
 
   /* read in examples */
@@ -1263,7 +1263,7 @@ int main(int argc, char* argv[]) {
   printf("sm.sizePsi: %ld\n", sm.sizePsi); fflush(stdout);
   
   /* impute latent variable for first iteration */
-  init_latent_variables(&sample,&learn_parm,&sm,&sparm);
+  init_latent_variables(&sample, cached_images, &learn_parm, &sm, &sparm);
 
   int k;
 

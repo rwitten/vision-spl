@@ -3,13 +3,16 @@
 CC=g++ -Wall 
 #CFLAGS= -g 
 #CFLAGS= -O3 -fomit-frame-pointer -ffast-math
-CFLAGS = -O3 -g
+CFLAGS = -O0 -g
 LD=g++ -Wall
 LDFLAGS= $(CFLAGS)
 ESSFLAGS = $(CFLAGS) -c
 #LDFLAGS= -O3
 #LDFLAGS = -O3 -pg
 LIBS= -lm
+MOSEK_ROOT = /afs/cs.stanford.edu/u/pawan/Project/mosek/6/tools/platform/linux64x86
+MOSEK_H = $(MOSEK_ROOT)/h
+MSKLIBPATH = $(MOSEK_ROOT)/bin
 #MOSEK_H= /Users/rafiwitten/libs/mosek/6/tools/platform/osx64x86/h
 #MSKLINKFLAGS= -lirc -lguide -limf -lsvml -lunwind -lmosek64 -lpthread -lc -ldl -lm
 MSKLINKFLAGS= -lmosek64 -lpthread -lm

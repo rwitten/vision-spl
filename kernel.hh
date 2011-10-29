@@ -4,11 +4,14 @@
 
 #include <iostream>
 #include <assert.h>
+#include "svm_light/svm_common.h"
 
 class kernel_obj {
     
     public:
         int total_length; // THIS IS LENGTH OF kernel_weights VECTOR.
+	int section_length;
+	int num_sections;
         int num_kernels;
         int is_spm;
         int* kernel_full_lengths; //counting BoW/SPM duplication AND factor of 2.
@@ -17,7 +20,7 @@ class kernel_obj {
         int* kernel_ends; //you own this one, inclusive
         double* kernel_weights;
      // Format : init_kernel_weights[0] = 0, init_kernel_weights[1]=1 or LEARNED BIAS.
-        void initialize(int init_num_kernels, int* init_kernel_lengths, double* init_kernel_weights, int init_is_spm)
+        void initialize(int init_num_kernels, int* init_kernel_lengths, int init_num_sections, double* init_kernel_weights, int init_is_spm)
         {
             assert(!kernel_lengths); // initialize once or feel my wrath
             assert(!kernel_weights);
@@ -40,14 +43,20 @@ class kernel_obj {
                 total_length += kernel_full_lengths[i];
             }
 
-            if(init_kernel_weights)
+                num_sections = init_num_sections;
+                section_length = total_length - 1;
+                total_length = num_sections * section_length + 1;
+
+            if(init_kernel_weights) {
+		assert(0);
                 kernel_weights= init_kernel_weights;
-            else
-            {
-                kernel_weights = (double*)malloc(multiplier*total_length* sizeof(double));
-                for(int i = 0 ; i<multiplier*total_length;i++)
+	    } else {
+                kernel_weights = (double*)malloc(total_length * sizeof(double));
+                for(int i = 0 ; i < total_length; i++) {
                     kernel_weights[i]=0;
+		}
             }
+
         }
         void cleanup()
         {
@@ -59,33 +68,36 @@ class kernel_obj {
         kernel_obj()
         {
             total_length=-1;
+		num_sections = -1;
+		section_length = -1;
             num_kernels = -1;
             kernel_lengths=NULL;
             kernel_weights=NULL;
         }
       
-        int  get_index(int kernel_num, int index, int box_choice, bool in_bb)
+        int  get_index(int kernel_num, int index, int box_choice, bool in_bb, int section_num)
         {
             int bb_multiplier = in_bb ? 0 : 1;
             int point_index;
             if (! is_spm) 
                 point_index = kernel_starts[kernel_num]+index + (kernel_lengths[kernel_num]*bb_multiplier);
             else
-                point_index = kernel_starts[kernel_num] + index + (box_choice*(kernel_lengths[kernel_num])) + 
-                    5*(kernel_lengths[kernel_num]*bb_multiplier);
+                point_index = kernel_starts[kernel_num] + index + (box_choice*(kernel_lengths[kernel_num])) + 5*(kernel_lengths[kernel_num]*bb_multiplier);
+
+	    point_index += section_num * section_length;
 
             return point_index;
            
         }
 
-        void set(int kernel_num, int index, int box_choice, bool in_bb, double weight)
+        void set(int kernel_num, int index, int box_choice, bool in_bb, int section_num, double weight)
         {
-            kernel_weights[get_index(kernel_num, index, box_choice, in_bb)] = weight;
+            kernel_weights[get_index(kernel_num, index, box_choice, in_bb, section_num)] = weight;
         }
 
-        double  get(int kernel_num, int index, int box_choice, bool in_bb)
+        double  get(int kernel_num, int index, int box_choice, bool in_bb, int section_num)
         {
-            return kernel_weights[get_index(kernel_num, index, box_choice, in_bb)];
+            return kernel_weights[get_index(kernel_num, index, box_choice, in_bb, section_num)];
         }
 
         //YOU DON'T OWN THIS SO DON'T FREE IT.
@@ -94,6 +106,17 @@ class kernel_obj {
             return kernel_weights;
         }
 
+	SVECTOR * get_svec(int section_num)
+	{
+		//The section starts at section_num * section_length + 1, but we need to include the extra 0 at the beginnning
+		SVECTOR * fvec = create_svector_n(&(kernel_weights[section_num * section_length]), section_length, "", 1.0);
+		WORD * word = fvec->words;
+		while (word->wnum) {
+			word->wnum += section_num * section_length;
+			++word;
+		}
+		return fvec;
+	}
 
     private:
 };
