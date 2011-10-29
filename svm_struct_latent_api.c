@@ -573,7 +573,7 @@ void do_max_pooling(POINT_AND_DESCRIPTOR * points_and_descriptors, LATENT_BOX ou
             }
             else
             {
-               assert(0); //IS DOING SUM POOLING
+               assert(0); //THIS CODE IS DOING SUM POOLING
                assert(sm->is_meta);
                assert(position>=0);
                assert(position< sm->meta_kernel_sizes[kernel_ind]);
