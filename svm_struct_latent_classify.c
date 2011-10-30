@@ -105,33 +105,33 @@ int main(int argc, char* argv[]) {
     LATENT_VAR h = make_latent_var(&model);
 	double * scores = (double *)calloc(sparm.n_classes, sizeof(double));
     for (i=0;i<testsample.n;i++) {
-	while (testsample.examples[i].x.image_id == last_image_id) i++;
-	last_image_id = testsample.examples[i].x.image_id;
-	num_distinct_examples++;
-    //    if(finlatent) {
-    //        read_latent_var(&h,finlatent);
-        //printf("%d %d\n",h.position_x,h.position_y);
-    //    }
-    //printf("%f\n",sparm.C);
-        struct timeval start_time;
-        struct timeval finish_time;
-        gettimeofday(&start_time, NULL);
+        while (testsample.examples[i].x.image_id == last_image_id) i++;
+        last_image_id = testsample.examples[i].x.image_id;
+        num_distinct_examples++;
+        //    if(finlatent) {
+        //        read_latent_var(&h,finlatent);
+            //printf("%d %d\n",h.position_x,h.position_y);
+        //    }
+        //printf("%f\n",sparm.C);
+            struct timeval start_time;
+            struct timeval finish_time;
+            gettimeofday(&start_time, NULL);
 
-        classify_struct_example(testsample.examples[i].x,&y,&h,cached_images,&model,&sparm,1);
+            classify_struct_example(testsample.examples[i].x,&y,&h,cached_images,&model,&sparm,1);
 
-        gettimeofday(&finish_time, NULL);
-        double microseconds = 1e6 * (finish_time.tv_sec - start_time.tv_sec) + (finish_time.tv_usec - start_time.tv_usec);
-    //printf("This ESS call took %f milliseconds.\n", microseconds/1e3);
+            gettimeofday(&finish_time, NULL);
+            double microseconds = 1e6 * (finish_time.tv_sec - start_time.tv_sec) + (finish_time.tv_usec - start_time.tv_usec);
+        //printf("This ESS call took %f milliseconds.\n", microseconds/1e3);
 
-        total_example_weight += testsample.examples[i].x.example_cost;
-        //double hinge_l = get_hinge_l_from_pos_score(pos_score,testsample.examples[i].y);
-        //printf("with a pos_score of %f, a label of %d we get a hinge_l of %f\n", pos_score, testsample.examples[i].y.label, hinge_l);
-   // double weighted_hinge_l = hinge_l * testsample.examples[i].x.example_cost;
-    //avghingeloss += weighted_hinge_l;
-    //if (hinge_l<1) {
+            total_example_weight += testsample.examples[i].x.example_cost;
+            //double hinge_l = get_hinge_l_from_pos_score(pos_score,testsample.examples[i].y);
+            //printf("with a pos_score of %f, a label of %d we get a hinge_l of %f\n", pos_score, testsample.examples[i].y.label, hinge_l);
+       // double weighted_hinge_l = hinge_l * testsample.examples[i].x.example_cost;
+        //avghingeloss += weighted_hinge_l;
+        //if (hinge_l<1) {
 
-	//A classification is considered "correct" if it guesses one of the objects in the image
-	if (y.label == testsample.examples[i].y.label || testsample.examples[i].x.also_correct[y.label]) {
+        //A classification is considered "correct" if it guesses one of the objects in the image
+        if (y.label == testsample.examples[i].y.label || testsample.examples[i].x.also_correct[y.label]) {
             correct++;
             weighted_correct+=testsample.examples[i].x.example_cost;
         }
@@ -141,12 +141,12 @@ int main(int argc, char* argv[]) {
 
         print_latent_var(testsample.examples[i].x, h, flatent);
 
-	get_class_scores(testsample.examples[i].x, cached_images, scores, &model, &sparm);     	
-	int j;
-	for (j = 0; j < sparm.n_classes; ++j) {
-		fprintf(fscore, "%f ", scores[j]);
-	}
-	fprintf(fscore, "\n");
+        get_class_scores(testsample.examples[i].x, cached_images, scores, &model, &sparm);
+        fprintf(fscore, "%s ", testsample.examples[i].x.image_path);
+        for (int j = 0; j < sparm.n_classes; ++j) {
+            fprintf(fscore, "%f ", scores[j]);
+        }
+        fprintf(fscore, "\n");
     }
     free_latent_var(h);	
     fclose(flabel);

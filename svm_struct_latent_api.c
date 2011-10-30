@@ -30,7 +30,7 @@
 //#define BASE_DIR "/Users/rafiwitten/scratch/mkl_features/"
 #define CONST_FILENAME_PART "_spquantized_1000_"
 #define CONST_FILENAME_SUFFIX ".mat"
-#define NUM_BBOXES_PER_IMAGE 800
+#define NUM_BBOXES_PER_IMAGE 1
 #define W_SCALE ((double)1e4)
 
 #define BASE_HEIGHT 75
@@ -84,7 +84,6 @@ SAMPLE read_struct_examples(char *file, STRUCTMODEL * sm, STRUCT_LEARN_PARM *spa
     Gets and stores image file name, line number (i.e. index), label, width, and height for each example.
     Width and height should be in units such that width * height = number of options for h.
   */
-
   SAMPLE sample;
   int num_examples,height,width;
 	int i;
@@ -143,6 +142,7 @@ SAMPLE read_struct_examples(char *file, STRUCTMODEL * sm, STRUCT_LEARN_PARM *spa
 	for (j = 0; j < num_correct_classes; ++j) {
 		correct_class_set[correct_class_list[j]] = 1;
 	}
+
 	for (j = 0; j < num_correct_classes; ++j) {
 		sample.examples[example_ind].y.label = correct_class_list[j];
 		sample.examples[example_ind].x.also_correct = (int*)calloc(sparm->n_classes, sizeof(int));
@@ -153,19 +153,19 @@ SAMPLE read_struct_examples(char *file, STRUCTMODEL * sm, STRUCT_LEARN_PARM *spa
 		sample.examples[example_ind].x.example_id = example_ind;
 		sample.examples[example_ind].x.image_id = i;
 		strcpy(sample.examples[example_ind].x.image_path, image_path);
-    		sample.examples[example_ind].x.example_cost = 1.0; //for now
+        sample.examples[example_ind].x.example_cost = 1.0; //for now
   		sample.examples[example_ind].x.descriptor_top_left_xs = (int*)calloc(sm->num_kernels, sizeof(int));
-    		sample.examples[example_ind].x.descriptor_top_left_ys = (int*)calloc(sm->num_kernels, sizeof(int));
-    		sample.examples[example_ind].x.descriptor_num_acrosses = (int*)calloc(sm->num_kernels, sizeof(int));
-    		sample.examples[example_ind].x.descriptor_num_downs = (int*)calloc(sm->num_kernels, sizeof(int));
+    	sample.examples[example_ind].x.descriptor_top_left_ys = (int*)calloc(sm->num_kernels, sizeof(int));
+    	sample.examples[example_ind].x.descriptor_num_acrosses = (int*)calloc(sm->num_kernels, sizeof(int));
+    	sample.examples[example_ind].x.descriptor_num_downs = (int*)calloc(sm->num_kernels, sizeof(int));
 		example_ind++;
 	}
 	free(correct_class_list);
 	free(correct_class_set);
   }
   sample.n = example_ind;
-	sample.examples = (EXAMPLE *)realloc(sample.examples, sample.n * sizeof(EXAMPLE));
-	sm->n = sample.n;
+  sample.examples = (EXAMPLE *)realloc(sample.examples, sample.n * sizeof(EXAMPLE));
+  sm->n = sample.n;
   fclose(fp);  
   return(sample); 
 }
@@ -270,16 +270,14 @@ void init_latent_variables(SAMPLE *sample, IMAGE_KERNEL_CACHE ** cached_images, 
   Latent variables are stored at sample.examples[i].h, for 1<=i<=sample.n.
 */
 	
-  int i;
   /* initialize the RNG */
 	init_gen_rand(sparm->rng_seed);
-	for (i = 0; i < sample->n; ++i) {
+	for (int i = 0; i < sample->n; ++i) {
 		long init_bbox_index = (long) floor(genrand_res53() * NUM_BBOXES_PER_IMAGE);
 		assert(init_bbox_index >= 0);
 		assert(init_bbox_index < NUM_BBOXES_PER_IMAGE);
 		sample->examples[i].h = make_latent_var(sm);
-		int k;
-		for (k = 0; k < sm->num_kernels; ++k) {
+		for (int k = 0; k < sm->num_kernels; ++k) {
 			box_to_latent_box(&(cached_images[sample->examples[i].x.image_id][0].object_boxes[init_bbox_index]), &(sample->examples[i].h.boxes[k]));
 		}
 	}
@@ -947,44 +945,44 @@ void compute_highest_scoring_latents(PATTERN x,LABEL y,IMAGE_KERNEL_CACHE ** cac
 	if (during_learning) assert(!x.also_correct[y_curr.label]); //either y_curr is the "official" correct class or it's incorrect
 	double loss = (y_curr.label == y.label) ? 0 : 1;
 	if (!during_learning) assert(loss == 0);
-        LATENT_VAR this_best =  make_latent_var(sm);
-        double this_best_score = -DBL_MAX;
-        for(int i = 0 ; i < NUM_BBOXES_PER_IMAGE; i ++)
-        {
-            Box box = cached_images[x.image_id][0].object_boxes[i];
-            LATENT_BOX h_temp_box;
-	    box_to_latent_box(&box, &h_temp_box);
-            LATENT_VAR h_temp = make_latent_var(sm);
-            for(int j = 0  ; j < sm->num_kernels ; j++)
-                h_temp.boxes[j] = h_temp_box;
+    LATENT_VAR this_best =  make_latent_var(sm);
+    double this_best_score = -DBL_MAX;
+    for(int i = 0 ; i < NUM_BBOXES_PER_IMAGE; i ++)
+    {
+        Box box = cached_images[x.image_id][0].object_boxes[i];
+        LATENT_BOX h_temp_box;
+        box_to_latent_box(&box, &h_temp_box);
+        LATENT_VAR h_temp = make_latent_var(sm);
+        for(int j = 0  ; j < sm->num_kernels ; j++)
+            h_temp.boxes[j] = h_temp_box;
 
-    		double ourscore = compute_w_T_psi_helper(&x, h_temp, y_curr.label,cached_images, valid_kernels, sm, sparm,false);
-            if(ourscore>this_best_score)
-            {
-                this_best_score = ourscore;
-                free_latent_var(this_best);
-                this_best = h_temp;
-            }
-            else
-                free_latent_var(h_temp);
-        }
-        double ourscore = compute_w_T_psi_helper(&x, this_best, y_curr.label,cached_images, valid_kernels, sm, sparm,true);
-        if(ourscore+loss>*max_score)
+        double ourscore = compute_w_T_psi_helper(&x, h_temp, y_curr.label,cached_images, valid_kernels, sm, sparm,false);
+        if(ourscore>this_best_score)
         {
-            *max_score = ourscore+loss;
-            *y_best = y_curr;
-            free_latent_var(*h_best);
-            *h_best = this_best;
+            this_best_score = ourscore;
+            free_latent_var(this_best);
+            this_best = h_temp;
         }
         else
-        {
-            free_latent_var(this_best);
-        }
+            free_latent_var(h_temp);
+    }
+    double ourscore = compute_w_T_psi_helper(&x, this_best, y_curr.label,cached_images, valid_kernels, sm, sparm,true);
+    if(ourscore+loss>*max_score)
+    {
+        *max_score = ourscore+loss;
+        *y_best = y_curr;
+        free_latent_var(*h_best);
+        *h_best = this_best;
+    }
+    else
+    {
+        free_latent_var(this_best);
+    }
 }
 
 double get_classifier_score(PATTERN x, LABEL y_guess, IMAGE_KERNEL_CACHE ** cached_images, STRUCTMODEL * sm, STRUCT_LEARN_PARM * sparm) {
 	double max_score = -DBL_MAX;
-	LATENT_VAR h;
+	LATENT_VAR h=make_latent_var(sm);
 	LABEL y;
 	compute_highest_scoring_latents(x, y_guess, cached_images, NULL, sm, sparm, &max_score, &h, &y, y_guess, false);
 	return max_score;

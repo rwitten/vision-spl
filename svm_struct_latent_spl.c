@@ -843,7 +843,7 @@ double cutting_plane_algorithm(double *w, long m, int MAX_ITER, double C, double
            gettimeofday(&primal_finish_time, NULL);
           microseconds = 1e6 * (primal_finish_time.tv_sec - primal_start_time.tv_sec) + (primal_finish_time.tv_usec - primal_start_time.tv_usec);
 		printf("Solving primal QP took %f\n", (double)microseconds/1000.0);
-for(j = 0 ; j< size_active ; j++)
+         for(j = 0 ; j< size_active ; j++)
             free(cons[j]);
           free(cons);
             /*double lb1;
@@ -875,7 +875,7 @@ for(j = 0 ; j< size_active ; j++)
                     G[j][j] -= gram_diag_unregularized_solve;
                 }   
             }*/
-            if(r)
+            if(r && (r!=4006))
             {
                 printf("Error %d in mosek_qp_optimize: Check ${MOSEKHOME}/${VERSION}/tools/platform/${PLATFORM}/h/mosek.h\n",r);
                 exit(1);
@@ -1316,9 +1316,9 @@ int main(int argc, char* argv[]) {
 			primal_obj = stochastic_subgradient_descent(w, m, MAX_ITER, C, epsilon, fycache, ex, cached_images, &sm, &sparm, valid_examples,valid_example_kernels);
 		  }
   		for (i=0;i<m;i++) {
-   	      LATENT_VAR h_temp = ex[i].h;
-      	  ex[i].h = infer_latent_variables(ex[i].x, ex[i].y, cached_images, &sm, &sparm);
-          free_latent_var(h_temp);
+//   	      LATENT_VAR h_temp = ex[i].h;
+//      	  ex[i].h = infer_latent_variables(ex[i].x, ex[i].y, cached_images, &sm, &sparm);
+//          free_latent_var(h_temp);
    		}
 	    for (i=0;i<m;i++) {
             free_svector(fycache[i]);
@@ -1421,9 +1421,9 @@ int main(int argc, char* argv[]) {
         latent_update=0;
         if(nValid) {
             for (i=0;i<m;i++) {
-                LATENT_VAR h_temp = ex[i].h;
-                ex[i].h = infer_latent_variables(ex[i].x, ex[i].y, cached_images, &sm, &sparm);
-                free_latent_var(h_temp);
+//                LATENT_VAR h_temp = ex[i].h;
+//                ex[i].h = infer_latent_variables(ex[i].x, ex[i].y, cached_images, &sm, &sparm);
+//                free_latent_var(h_temp);
             }
         }
         stop_crit = 1;

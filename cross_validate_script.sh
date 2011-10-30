@@ -11,11 +11,11 @@ kernels[7]='metakernel'
 
 for randomness in 1
 do
-	for classfold in  'car'
+	for classfold in   'newsmall' 'all'
 	do
-		for foldnum in 1 2 3 
+		for foldnum in 1
 		do
-			for C in 1000000 10000000 100000000 500000000 1000000000
+			for C in 100000000 
 			do
 				for l in 0 1
 				do
@@ -29,9 +29,7 @@ do
                                 do
                                     basename=`./name.sh ${algorithm} ${classfold} ${C} ${foldnum} ${randomness} ${h} ${l} ${prox_weight} ${epsilon} overall`
                                     filestub=`./name.sh ${algorithm} ${classfold} ${C} ${foldnum} ${randomness} ${h} ${l} ${prox_weight} ${epsilon}`
-                                    num_neg=`cat data/train.${classfold}_1.txt | grep ' 0 ' | wc -l`
-                                    num_pos=`cat data/train.${classfold}_1.txt | grep ' 1 ' | wc -l`
-                                    j=`echo $num_neg $num_pos | awk '{print $1/$2;}'`	
+                                    j=1
                                     
                                     commands[1]=" -e ${epsilon} --h $h --j $j --l $l --p ${prox_weight} "
                                     commands[2]=" -e ${epsilon} --h $h --j $j --l $l --p ${prox_weight} -m .1 -k 50 "
@@ -66,10 +64,10 @@ do
                                         command_kernel_endtimestamp="date > ./output/${basename_kernel}.endtime" 
     
                                         echo $command_kernel_starttimestamp >> $script_name
-                                        command_train="./svm_bbox_learn --s $randomness -c ${C} -o 0 --n 2 ${commands[$algorithm]} ./data/train.${fold}.txt ./output/${basename_kernel} ./data/${kernels[$kernel]}_info.txt ./output/${filestub} > ./output/${basename_kernel}.train_output"
-                                        command_test="./svm_bbox_classify --c $C --n 2 ${commands_test[$algorithm]} ./data/test.${fold}.txt ./output/${basename_kernel}.model ./output/${basename_kernel}.labels ./output/${basename_kernel}.latent.test  ./output/${basename_kernel}.test_guesses ./output/${filestub} ./data/${kernels[$kernel]}_info.txt >./output/${basename_kernel}.test_classify_output"
+                                        command_train="./svm_bbox_learn --s $randomness -c ${C} -o 0 --n 20 ${commands[$algorithm]} ./data/train.${fold}.txt ./output/${basename_kernel} ./data/${kernels[$kernel]}_info.txt ./output/${filestub} > ./output/${basename_kernel}.train_output"
+                                        command_test="./svm_bbox_classify --c $C --n 20 ${commands_test[$algorithm]} ./data/test.${fold}.txt ./output/${basename_kernel}.model ./output/${basename_kernel}.labels ./output/${basename_kernel}.latent.test  ./output/${basename_kernel}.test_guesses ./output/${filestub} ./data/${kernels[$kernel]}_info.txt >./output/${basename_kernel}.test_classify_output"
 
-                                        command_test_on_train="./svm_bbox_classify --c $C --n 2 ${commands_test[$algorithm]} ./data/train.${fold}.txt ./output/${basename_kernel}.model ./output/${basename_kernel}.labels_train ./output/${basename_kernel}.score.train ./output/${basename_kernel}.train_guesses ./output/${filestub} ./data/${kernels[$kernel]}_info.txt>./output/${basename_kernel}.train_classify_output"
+                                        command_test_on_train="./svm_bbox_classify --c $C --n 20 ${commands_test[$algorithm]} ./data/train.${fold}.txt ./output/${basename_kernel}.model ./output/${basename_kernel}.labels_train ./output/${basename_kernel}.score.train ./output/${basename_kernel}.train_guesses ./output/${filestub} ./data/${kernels[$kernel]}_info.txt>./output/${basename_kernel}.train_classify_output"
                                         echo ${command_train} >> $script_name
                                         echo $command_test  >> $script_name
                                         echo $command_test_on_train  >> $script_name
